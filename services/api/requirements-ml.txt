@@ -1,0 +1,31 @@
+# ML dependencies for the LeRobot v3 ingest + B2 streaming bridge.
+#
+# Kept OUT of requirements.txt (and the structural-test fast path) so the API
+# boots and the structural tests run without torch. Install this separately:
+#
+#     cd services/api && .venv/bin/pip install -r requirements-ml.txt
+#
+# Pins are a VERIFIED window for the build machine's Python (3.11). lerobot
+# 0.5.x requires Python >=3.12, so 0.4.4 is the highest version pip will resolve
+# on 3.11 — it includes the full v3 dataset API and StreamingLeRobotDataset.
+# Resolved + import-verified + end-to-end-verified on Python 3.11 /
+# macOS arm64 (June 2026):
+#   lerobot 0.4.4, torch 2.10.0, torchvision 0.25.0, torchcodec 0.10.0,
+#   av 15.1.0, datasets 4.8.5, huggingface-hub 0.35.3, pyarrow 21.0.0,
+#   numpy 2.2.6, pandas 2.3.3.
+#
+# Video decode/encode runs through torchcodec / PyAV (their bundled ffmpeg),
+# NOT a bare system ffmpeg (Homebrew's is slim — no guarantee of codecs).
+# CPU torch wheels are used by default; the device auto-detects CUDA -> MPS ->
+# CPU at runtime, defaulting to CPU.
+
+lerobot>=0.4.4,<0.5
+torch>=2.7,<2.11
+torchvision>=0.22,<0.26
+torchcodec>=0.3,<0.11
+av>=15,<16
+datasets>=4,<5
+huggingface-hub>=0.34.2,<0.36
+pyarrow>=17,<22
+numpy>=1.26,<3
+pandas>=2.2,<3
