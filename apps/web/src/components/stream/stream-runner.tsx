@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/table";
 import { ErrorState } from "@/components/ui/error-state";
 import { useEpisodes, useRunStream } from "@/lib/queries";
-import type { StreamRunStats } from "@lerobot-s3-streaming/shared";
+import type { StreamRunStats } from "@lerobot-b2-streaming/shared";
 
 const PRESET_TASKS = [
   "Pick up the cube",

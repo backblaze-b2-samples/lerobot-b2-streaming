@@ -1,5 +1,5 @@
 {
-  "name": "@lerobot-s3-streaming/web",
+  "name": "@lerobot-b2-streaming/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -24,7 +24,7 @@
     "@radix-ui/react-switch": "^1.2.6",
     "@tanstack/react-query": "^5.100.7",
     "@tanstack/react-table": "^8.21.3",
-    "@lerobot-s3-streaming/shared": "workspace:*",
+    "@lerobot-b2-streaming/shared": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

@@ -88,7 +88,7 @@ Notes:
 - Frontend lint: `pnpm lint`
 - Backend lint: `pnpm lint:api`
 - Full suite: `pnpm typecheck && pnpm lint && pnpm lint:api && pnpm test:api && pnpm check:structure`
-- E2E: `pnpm test:e2e` (run `pnpm --filter @lerobot-s3-streaming/web exec playwright install chromium` once first)
+- E2E: `pnpm test:e2e` (run `pnpm --filter @lerobot-b2-streaming/web exec playwright install chromium` once first)
 
 ### When to run
 - After behavior change: run relevant subset

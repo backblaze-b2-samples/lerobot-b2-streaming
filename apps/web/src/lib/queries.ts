@@ -21,7 +21,7 @@ import {
 import type {
   EpisodeCreateRequest,
   FileMetadata,
-} from "@lerobot-s3-streaming/shared";
+} from "@lerobot-b2-streaming/shared";
 
 // Single source of truth for query keys. Keep these tightly scoped so that
 // invalidating "files" doesn't blow away unrelated caches, and so an IDE

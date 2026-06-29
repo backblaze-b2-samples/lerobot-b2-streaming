@@ -1,7 +1,7 @@
 <!-- last_verified: 2026-04-22 -->
 # Security
 
-Security principles and implementation for lerobot-s3-streaming.
+Security principles and implementation for lerobot-b2-streaming.
 
 ## Trust Boundaries
 

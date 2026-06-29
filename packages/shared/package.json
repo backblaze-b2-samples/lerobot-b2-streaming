@@ -1,5 +1,5 @@
 {
-  "name": "@lerobot-s3-streaming/shared",
+  "name": "@lerobot-b2-streaming/shared",
   "version": "0.1.0",
   "private": true,
   "main": "./src/types.ts",

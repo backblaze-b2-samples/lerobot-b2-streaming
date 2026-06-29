@@ -7,7 +7,7 @@ import type { NextConfig } from "next";
 // One wildcard covers every region + bucket, so this config drops in
 // without per-deployment tweaks.
 const nextConfig: NextConfig = {
-  transpilePackages: ["@lerobot-s3-streaming/shared"],
+  transpilePackages: ["@lerobot-b2-streaming/shared"],
   images: {
     remotePatterns: [
       {

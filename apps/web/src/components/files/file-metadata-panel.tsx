@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import type { FileMetadataDetail } from "@lerobot-s3-streaming/shared";
+import type { FileMetadataDetail } from "@lerobot-b2-streaming/shared";
 
 interface FileMetadataPanelProps {
   metadata: FileMetadataDetail;

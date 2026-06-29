@@ -1,4 +1,4 @@
-# Build plan — `lerobot-s3-streaming`
+# Build plan — `lerobot-b2-streaming`
 
 > Source of truth for builder + reviewer. Built by adapting the freshly-cloned
 > `vibe-coding-starter-kit` at
@@ -8,7 +8,7 @@
 
 ## 1. Purpose
 
-`lerobot-s3-streaming` shows robotics researchers and lab teams how to use a
+`lerobot-b2-streaming` shows robotics researchers and lab teams how to use a
 single **Backblaze B2** bucket as the shared dataset backend for
 [HuggingFace LeRobot](https://github.com/huggingface/lerobot). Teleoperation
 **episodes** (multi-camera MP4 video + a Parquet state/action table, in the real
@@ -77,7 +77,7 @@ from B2.
   (pages stay) but rewrite the README and dashboard doc.
 - Nothing else is removed — the starter surface is the ceiling and we add on top.
 
-### ADD (new for `lerobot-s3-streaming`)
+### ADD (new for `lerobot-b2-streaming`)
 - **Backend repo layer** (SDK-contained, `<300` lines/file):
   - `repo/b2_client.py` — extend the existing S3 client with `get_object_range()`
     (ranged GET), `put_object`/multipart for shards, `list_objects_v2` under a
@@ -231,18 +231,18 @@ default-hint (it's editing a real resource). Exemplar to mirror:
 
 ## 6. Rename table
 
-| From (`vibe-coding-starter-kit`) | To (`lerobot-s3-streaming`) |
+| From (`vibe-coding-starter-kit`) | To (`lerobot-b2-streaming`) |
 |---|---|
-| repo dir / kebab id | `lerobot-s3-streaming` |
-| root `package.json` `name` | `lerobot-s3-streaming` |
-| pkg scope `@vibe-coding-starter-kit/web` | `@lerobot-s3-streaming/web` |
-| pkg scope `@vibe-coding-starter-kit/shared` | `@lerobot-s3-streaming/shared` |
+| repo dir / kebab id | `lerobot-b2-streaming` |
+| root `package.json` `name` | `lerobot-b2-streaming` |
+| pkg scope `@vibe-coding-starter-kit/web` | `@lerobot-b2-streaming/web` |
+| pkg scope `@vibe-coding-starter-kit/shared` | `@lerobot-b2-streaming/shared` |
 | `APP_NAME` ("OSS Starter Kit") in `lib/app-config.ts` | `LeRobot S3 Streaming` |
 | `APP_DESCRIPTION` | `Stream LeRobot teleoperation datasets straight from Backblaze B2` |
 | FastAPI title ("OSS Starter Kit API") in `main.py` | `LeRobot S3 Streaming API` |
-| Railway service names / infra labels | `lerobot-s3-streaming-web` / `lerobot-s3-streaming-api` |
-| `user_agent_extra` (`b2ai-oss-start`) | `b2ai-lerobot-s3-streaming` (sample-specific custom UA; no claimed issue value available) |
-| UTM `utm_content=b2ai-oss-start` in README links | `utm_content=b2ai-lerobot-s3-streaming` |
+| Railway service names / infra labels | `lerobot-b2-streaming-web` / `lerobot-b2-streaming-api` |
+| `user_agent_extra` (`b2ai-oss-start`) | `b2ai-lerobot-b2-streaming` (sample-specific custom UA; no claimed issue value available) |
+| UTM `utm_content=b2ai-oss-start` in README links | `utm_content=b2ai-lerobot-b2-streaming` |
 | **Env var** `B2_KEY_ID` | **`B2_APPLICATION_KEY_ID`** (Standard #3) |
 | **Env var** `B2_ENDPOINT` (full URL) | **`B2_REGION`** (derive `endpoint_url=f"https://s3.{B2_REGION}.backblazeb2.com"`) |
 | **Env var** `B2_PUBLIC_URL` | **`B2_PUBLIC_URL_BASE`** (Standard #3) |
@@ -284,7 +284,7 @@ documented in README as a separate install step) and **pin a verified window**:
 ## 8. Standards checklist (must hold at review)
 
 - [ ] S3-compatible API is the default; **zero** b2-native calls.
-- [ ] Custom `user_agent_extra` on the boto3 S3 client (`b2ai-lerobot-s3-streaming`).
+- [ ] Custom `user_agent_extra` on the boto3 S3 client (`b2ai-lerobot-b2-streaming`).
 - [ ] Env vars exactly: `B2_APPLICATION_KEY_ID`, `B2_APPLICATION_KEY`,
       `B2_BUCKET_NAME`, `B2_REGION`, `B2_PUBLIC_URL_BASE` (no `B2_KEY_ID`/`B2_ENDPOINT`/
       `B2_PUBLIC_URL` left anywhere — grep the whole tree incl. infra + docs).

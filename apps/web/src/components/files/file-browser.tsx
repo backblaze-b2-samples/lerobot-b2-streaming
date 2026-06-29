@@ -45,7 +45,7 @@ import { ApiError, getDownloadUrl } from "@/lib/api-client";
 import { useDeleteFile, useFiles } from "@/lib/queries";
 import { formatDate } from "@/lib/utils";
 import { buildFileTree, type TreeNode, type TreeFolder } from "@/lib/file-tree";
-import type { FileMetadata } from "@lerobot-s3-streaming/shared";
+import type { FileMetadata } from "@lerobot-b2-streaming/shared";
 
 // Stable component (declared at module scope, never re-created during
 // render) so the React Compiler / lint rule treats it as a normal element.

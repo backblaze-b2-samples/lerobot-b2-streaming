@@ -13,13 +13,13 @@ Deploy both services (web + api) on Railway.
 1. Create a new Railway project
 2. Add two services from the same repo:
 
-### Web Service (Next.js) — `lerobot-s3-streaming-web`
+### Web Service (Next.js) — `lerobot-b2-streaming-web`
 - **Root Directory**: `apps/web`
 - **Build Command**: `pnpm install && pnpm build`
 - **Start Command**: `pnpm start`
 - **Port**: `3000`
 
-### API Service (FastAPI) — `lerobot-s3-streaming-api`
+### API Service (FastAPI) — `lerobot-b2-streaming-api`
 - **Root Directory**: `services/api`
 - **Build Command**: `pip install -r requirements.txt && pip install -r requirements-ml.txt`
 - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`

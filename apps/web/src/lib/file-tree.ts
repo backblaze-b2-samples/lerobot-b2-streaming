@@ -1,4 +1,4 @@
-import type { FileMetadata } from "@lerobot-s3-streaming/shared";
+import type { FileMetadata } from "@lerobot-b2-streaming/shared";
 
 export interface TreeFolder {
   type: "folder";

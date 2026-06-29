@@ -12,7 +12,7 @@ import type {
   StreamRunRequest,
   StreamRunStats,
   UploadStats,
-} from "@lerobot-s3-streaming/shared";
+} from "@lerobot-b2-streaming/shared";
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 

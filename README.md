@@ -1,7 +1,7 @@
 <!-- last_verified: 2026-06-29 -->
 # LeRobot S3 Streaming
 
-Use a single **[Backblaze B2](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-lerobot-s3-streaming)** bucket as the shared dataset backend for [HuggingFace LeRobot](https://github.com/huggingface/lerobot). Record teleoperation **episodes** (multi-camera MP4 + a Parquet state/action table, in the real **LeRobotDataset v3** layout), persist them to B2, index them by task label, and then **stream them back chunk-by-chunk from B2 over the S3 API** to feed training — with no per-researcher full-dataset download.
+Use a single **[Backblaze B2](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-lerobot-b2-streaming)** bucket as the shared dataset backend for [HuggingFace LeRobot](https://github.com/huggingface/lerobot). Record teleoperation **episodes** (multi-camera MP4 + a Parquet state/action table, in the real **LeRobotDataset v3** layout), persist them to B2, index them by task label, and then **stream them back chunk-by-chunk from B2 over the S3 API** to feed training — with no per-researcher full-dataset download.
 
 Built for ML / robotics engineers who already know LeRobot and want object storage instead of a local disk or the HuggingFace Hub. The entire ML workload runs **locally** (CPU by default, GPU auto-detected) — your only credentials are B2.
 
@@ -27,14 +27,14 @@ The measurable, verifiable invariant: **bytes fetched from B2 ≪ total dataset 
 
 - **Frontend** — Next.js 16 + React 19 + Tailwind v4 + shadcn/ui, TanStack Query data layer.
 - **Backend** — FastAPI with strict layering (`types → config → repo → service → runtime`), structural tests, `/health`, `/metrics`, JSON logging.
-- **B2 surface** — S3-compatible API only (boto3), one client in `repo/`, custom user agent `b2ai-lerobot-s3-streaming`. The ranged GETs are plain S3 `Range` requests, not the b2-native API.
+- **B2 surface** — S3-compatible API only (boto3), one client in `repo/`, custom user agent `b2ai-lerobot-b2-streaming`. The ranged GETs are plain S3 `Range` requests, not the b2-native API.
 - **LeRobot / torch** — contained in `services/api/app/repo/lerobot_dataset.py` (v3 build/read) and `repo/b2_stream.py` (the bridge).
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the v3 layout, B2 prefix layout, and the streaming data flow.
 
 ## Quick Start
 
-You need: Node.js >= 20, pnpm >= 9, Python >= 3.11, and a free **[Backblaze B2 account](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-lerobot-s3-streaming)**.
+You need: Node.js >= 20, pnpm >= 9, Python >= 3.11, and a free **[Backblaze B2 account](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-lerobot-b2-streaming)**.
 
 **1. Install frontend dependencies**
 
@@ -62,7 +62,7 @@ cd ../..
 cp .env.example .env
 ```
 
-Open `.env`, then in the [Backblaze B2 dashboard](https://secure.backblaze.com/b2_buckets.htm?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-lerobot-s3-streaming):
+Open `.env`, then in the [Backblaze B2 dashboard](https://secure.backblaze.com/b2_buckets.htm?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-lerobot-b2-streaming):
 
 1. **Create a bucket** and paste:
    - **Bucket Unique Name** → `B2_BUCKET_NAME`
@@ -114,7 +114,7 @@ Frontend at `localhost:3000`, API at `localhost:8000`. Open **Episodes → Recor
 | `pnpm lint:api` | Lint backend (ruff) |
 | `pnpm test:api` | Run backend tests |
 | `pnpm check:structure` | Verify layering rules |
-| `pnpm test:e2e` | Playwright e2e tests (run `pnpm --filter @lerobot-s3-streaming/web exec playwright install chromium` once first) |
+| `pnpm test:e2e` | Playwright e2e tests (run `pnpm --filter @lerobot-b2-streaming/web exec playwright install chromium` once first) |
 
 ## Documentation Map
 

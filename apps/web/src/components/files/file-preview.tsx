@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePreviewUrl } from "@/lib/queries";
-import type { FileMetadata } from "@lerobot-s3-streaming/shared";
+import type { FileMetadata } from "@lerobot-b2-streaming/shared";
 
 interface FilePreviewProps {
   file: FileMetadata | null;

@@ -3,7 +3,7 @@
 
 This is the authoritative control surface for all coding agents. Read this first.
 
-`lerobot-s3-streaming` records LeRobot v3 teleoperation episodes, persists them to
+`lerobot-b2-streaming` records LeRobot v3 teleoperation episodes, persists them to
 a Backblaze B2 bucket, and streams them back chunk-by-chunk over the S3 API. The
 marquee feature is the **B2/S3 streaming bridge** (`repo/b2_stream.py`) — see
 ARCHITECTURE.md. `StreamingLeRobotDataset` is HuggingFace-Hub-only; this bridge

@@ -27,7 +27,7 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { getFiles } from "@/lib/api-client";
-import type { FileMetadata } from "@lerobot-s3-streaming/shared";
+import type { FileMetadata } from "@lerobot-b2-streaming/shared";
 
 interface CommandPaletteProps {
   open: boolean;

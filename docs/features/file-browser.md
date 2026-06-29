@@ -67,8 +67,8 @@ List, preview, download, and delete files stored in Backblaze B2.
 - Test files: `services/api/tests/test_file_key_routes.py`, `apps/web/src/lib/api-client.test.ts`
 - Required cases: list files, empty list, file not found, presigned URL generation, delete success, delete failure
 - Quick verify command: `pnpm test:api`
-- Client route-construction tests: `pnpm --filter @lerobot-s3-streaming/web test`
-- Full verify command: `pnpm lint && pnpm --filter @lerobot-s3-streaming/web test && pnpm build && pnpm lint:api && pnpm test:api && pnpm check:structure`
+- Client route-construction tests: `pnpm --filter @lerobot-b2-streaming/web test`
+- Full verify command: `pnpm lint && pnpm --filter @lerobot-b2-streaming/web test && pnpm build && pnpm lint:api && pnpm test:api && pnpm check:structure`
 - Pass criteria: all pytest tests green, no ruff violations
 
 ## Related Docs
