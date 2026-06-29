@@ -138,13 +138,24 @@ export function EpisodeList() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Button asChild size="icon" variant="ghost" className="h-8 w-8" title="Stream">
+                      <Button
+                        asChild
+                        size="icon"
+                        variant="ghost"
+                        className="h-9 w-9"
+                        aria-label={`Stream ep_${String(ep.episode_index).padStart(6, "0")}`}
+                      >
                         <Link href={`/stream?episode=${ep.episode_index}`}>
                           <Radio className="h-4 w-4" />
                         </Link>
                       </Button>
                       <DeleteEpisodeButton index={ep.episode_index}>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" title="Delete">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-9 w-9 text-destructive"
+                          aria-label={`Delete ep_${String(ep.episode_index).padStart(6, "0")}`}
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </DeleteEpisodeButton>

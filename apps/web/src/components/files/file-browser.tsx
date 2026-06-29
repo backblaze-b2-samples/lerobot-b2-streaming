@@ -98,7 +98,9 @@ function TreeRow({
     return (
       <>
         <button
+          type="button"
           onClick={() => onToggle(node.path)}
+          aria-expanded={isOpen}
           className="flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-sm hover:bg-accent/60 tree-row transition-colors group"
           style={{ paddingLeft: `${depth * 20 + 12}px` }}
         >
@@ -158,9 +160,10 @@ function TreeRow({
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+              className="h-8 w-8 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+              aria-label={`Actions for ${file.filename}`}
             >
-              <MoreHorizontal className="h-3.5 w-3.5" />
+              <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Moon, Sun, Bell, Search } from "lucide-react";
+import { Moon, Sun, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Breadcrumb,
@@ -93,7 +93,9 @@ export function Header() {
       </Breadcrumb>
 
       <button
+        type="button"
         onClick={() => setPaletteOpen(true)}
+        aria-label="Open command palette"
         className="ml-4 hidden md:flex items-center gap-2 h-8 flex-1 max-w-md px-3 rounded-md bg-white/10 border border-white/15 text-nav-foreground/70 text-sm hover:bg-white/15 hover:text-nav-foreground transition-colors"
       >
         <Search className="h-3.5 w-3.5" />
@@ -108,14 +110,8 @@ export function Header() {
           variant="ghost"
           size="icon"
           className="h-8 w-8 text-nav-foreground/80 hover:text-nav-foreground hover:bg-white/10 rounded-md"
-        >
-          <Bell className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-nav-foreground/80 hover:text-nav-foreground hover:bg-white/10 rounded-md"
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
         >
           <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
           <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />

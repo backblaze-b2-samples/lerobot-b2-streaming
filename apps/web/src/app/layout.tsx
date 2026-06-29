@@ -41,10 +41,10 @@ export default function RootLayout({
               <SidebarProvider>
                 <TooltipProvider>
                   <AppSidebar />
-                  <div className="flex flex-1 flex-col">
+                  <div className="flex min-w-0 flex-1 flex-col">
                     <Header />
                     <HealthBanner />
-                    <main className="flex-1 overflow-auto p-6 lg:p-8">
+                    <main className="min-w-0 flex-1 overflow-auto p-6 lg:p-8">
                       {children}
                     </main>
                   </div>

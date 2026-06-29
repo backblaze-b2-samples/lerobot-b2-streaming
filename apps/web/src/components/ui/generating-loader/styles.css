@@ -53,9 +53,9 @@
   100% { transform: rotate(360deg) scale(0.85); opacity: 0.75; }
 }
 
-@keyframes blaze-shimmer {
-  0%   { background-position: 0% 50%; }
-  100% { background-position: 200% 50%; }
+@keyframes blaze-label-pulse {
+  0%, 100% { opacity: 0.78; }
+  50%      { opacity: 1; }
 }
 
 /* Vertical scan line — color comes from --scan-color (red/amber/yellow).
@@ -150,20 +150,10 @@
   animation: blaze-sparkle-spin var(--sparkle-dur, 1.5s) linear infinite;
 }
 
-/* Shimmer label — sweep tinted with brand red, only when label is set. */
+/* Label — solid token-driven text, subtly pulsing only when label is set. */
 .blaze-label {
-  background: linear-gradient(
-    90deg,
-    var(--muted-foreground) 0%,
-    color-mix(in oklab, var(--blaze-red) 65%, var(--foreground)) 40%,
-    var(--muted-foreground) 80%,
-    var(--muted-foreground) 100%
-  );
-  background-size: 200% 100%;
-  -webkit-background-clip: text;
-          background-clip: text;
-  color: transparent;
-  animation: blaze-shimmer 2.2s linear infinite;
+  color: color-mix(in oklab, var(--blaze-red) 38%, var(--foreground));
+  animation: blaze-label-pulse 1.8s var(--ease-productive, ease-out) infinite;
 }
 
 /* Scrim used when an existing image is being iterated on. */

@@ -148,7 +148,7 @@ export function SettingsForm() {
                           key={t}
                           className="flex items-center gap-2 text-sm capitalize cursor-pointer"
                         >
-                          <RadioGroupItem value={t} />
+                          <RadioGroupItem value={t} aria-label={`${t} theme`} />
                           {t}
                         </label>
                       ))}
@@ -203,6 +203,7 @@ export function SettingsForm() {
                     <Switch
                       checked={field.value}
                       onCheckedChange={field.onChange}
+                      aria-label="Email me on every upload"
                     />
                   </FormControl>
                 </FormItem>
@@ -218,6 +219,7 @@ export function SettingsForm() {
                     <Checkbox
                       checked={field.value}
                       onCheckedChange={field.onChange}
+                      aria-label="Warn me when approaching quota"
                     />
                   </FormControl>
                   <div className="grid gap-1.5 leading-none">
@@ -241,6 +243,7 @@ export function SettingsForm() {
                       type="number"
                       min={50}
                       max={95}
+                      aria-label="Quota warning threshold percent"
                       className="w-32 font-mono tabular-nums"
                       {...field}
                     />

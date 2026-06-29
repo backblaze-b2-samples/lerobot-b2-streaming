@@ -102,17 +102,17 @@ export function DesignPrimitives() {
               <Textarea id="demo-area" placeholder="multi-line" rows={2} />
             </div>
             <div className="flex items-center gap-3">
-              <Checkbox id="demo-check" />
+              <Checkbox id="demo-check" aria-label="Checkbox" />
               <Label htmlFor="demo-check">Checkbox</Label>
             </div>
             <div className="flex items-center gap-3">
-              <Switch id="demo-switch" />
+              <Switch id="demo-switch" aria-label="Switch" />
               <Label htmlFor="demo-switch">Switch</Label>
             </div>
             <RadioGroup defaultValue="a" className="flex gap-4">
               {["a", "b", "c"].map((v) => (
                 <label key={v} className="flex items-center gap-1.5 text-sm">
-                  <RadioGroupItem value={v} />
+                  <RadioGroupItem value={v} aria-label={`Option ${v}`} />
                   Option {v}
                 </label>
               ))}

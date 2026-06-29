@@ -87,7 +87,7 @@ function NumberSelect({
   onChange,
   options,
   format,
-  width = "w-40",
+  width = "w-full sm:w-40",
 }: {
   value: number;
   onChange: (v: number) => void;
@@ -162,7 +162,7 @@ export function EpisodeCreateForm() {
                   <FormLabel>Source dataset</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger className="w-96">
+                      <SelectTrigger className="w-full sm:w-96">
                         <SelectValue />
                       </SelectTrigger>
                     </FormControl>
@@ -194,7 +194,7 @@ export function EpisodeCreateForm() {
                     <FormControl>
                       <Input
                         placeholder="owner/name"
-                        className="w-96"
+                        className="w-full sm:w-96"
                         value={field.value ?? ""}
                         onChange={field.onChange}
                       />
@@ -217,7 +217,7 @@ export function EpisodeCreateForm() {
                   <FormLabel>Task</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger className="w-72">
+                      <SelectTrigger className="w-full sm:w-72">
                         <SelectValue />
                       </SelectTrigger>
                     </FormControl>

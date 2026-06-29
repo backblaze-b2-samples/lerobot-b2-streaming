@@ -236,9 +236,9 @@
   from { opacity: 0; transform: translateY(4px) scale(0.99); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
-@keyframes dot-bounce {
-  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
-  40%           { transform: scale(1);   opacity: 1; }
+@keyframes dot-pulse {
+  0%, 80%, 100% { opacity: 0.35; }
+  40%           { opacity: 1; }
 }
 
 .animate-fade-in-up { animation: fade-in-up 0.2s var(--ease-productive) both; }
@@ -256,6 +256,7 @@
    Neutralize the generated component's py-6 + gap-6 defaults so the
    explicit padding declared on each CardHeader / CardContent wins. */
 [data-slot="card"] {
+  min-width: 0;
   border-radius: var(--radius);
   box-shadow: var(--shadow-card);
   padding-top: 0;
@@ -263,6 +264,12 @@
   gap: 0;
   transition: border-color var(--duration-short) var(--ease-productive),
               box-shadow var(--duration-short) var(--ease-productive);
+}
+[data-slot="card-header"],
+[data-slot="card-content"],
+[data-slot="card-title"],
+[data-slot="card-description"] {
+  min-width: 0;
 }
 /* When a CardHeader carries a border-b, the generated class sets pb-6.
    Our explicit py-4 is the intended rhythm. */
@@ -466,7 +473,7 @@ a[data-slot="button"].border.bg-background:hover {
   height: 6px;
   border-radius: 999px;
   background: var(--muted-foreground);
-  animation: dot-bounce 1.4s infinite ease-in-out;
+  animation: dot-pulse 1.4s infinite var(--ease-productive);
 }
 .chat-typing span:nth-child(2) { animation-delay: 0.15s; }
 .chat-typing span:nth-child(3) { animation-delay: 0.3s; }
@@ -481,11 +488,27 @@ a[data-slot="button"].border.bg-background:hover {
   background: var(--card);
   font-size: 0.75rem;
   color: var(--muted-foreground);
-  transition: all var(--duration-short) var(--ease-productive);
+  transition: color var(--duration-short) var(--ease-productive),
+              border-color var(--duration-short) var(--ease-productive),
+              background-color var(--duration-short) var(--ease-productive);
   cursor: pointer;
 }
 .prompt-chip:hover {
   color: var(--foreground);
   border-color: color-mix(in oklab, var(--primary) 50%, var(--border));
   background: color-mix(in oklab, var(--primary) 5%, var(--card));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html, body {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
 }
