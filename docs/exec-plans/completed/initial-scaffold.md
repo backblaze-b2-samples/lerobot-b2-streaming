@@ -237,9 +237,9 @@ default-hint (it's editing a real resource). Exemplar to mirror:
 | root `package.json` `name` | `lerobot-b2-streaming` |
 | pkg scope `@vibe-coding-starter-kit/web` | `@lerobot-b2-streaming/web` |
 | pkg scope `@vibe-coding-starter-kit/shared` | `@lerobot-b2-streaming/shared` |
-| `APP_NAME` ("OSS Starter Kit") in `lib/app-config.ts` | `LeRobot S3 Streaming` |
+| `APP_NAME` ("OSS Starter Kit") in `lib/app-config.ts` | `LeRobot B2 Streaming` |
 | `APP_DESCRIPTION` | `Stream LeRobot teleoperation datasets straight from Backblaze B2` |
-| FastAPI title ("OSS Starter Kit API") in `main.py` | `LeRobot S3 Streaming API` |
+| FastAPI title ("OSS Starter Kit API") in `main.py` | `LeRobot B2 Streaming API` |
 | Railway service names / infra labels | `lerobot-b2-streaming-web` / `lerobot-b2-streaming-api` |
 | `user_agent_extra` (`b2ai-oss-start`) | `b2ai-lerobot-b2-streaming` (sample-specific custom UA; no claimed issue value available) |
 | UTM `utm_content=b2ai-oss-start` in README links | `utm_content=b2ai-lerobot-b2-streaming` |
@@ -252,7 +252,7 @@ default-hint (it's editing a real resource). Exemplar to mirror:
 Update `.env.example`, `settings.py`, `main.py` validation, `infra/railway/README.md`,
 README setup steps, and `pnpm dev:*` scripts accordingly. The starter's hardcoded
 header/title leak ("OSS Starter Kit"/"Page" fallback) must resolve through the single
-`APP_NAME` const — verify the header shows "LeRobot S3 Streaming", not a stale string.
+`APP_NAME` const — verify the header shows "LeRobot B2 Streaming", not a stale string.
 
 ## 7. Dependency pinning (ML — clean-install correctness is mandatory)
 

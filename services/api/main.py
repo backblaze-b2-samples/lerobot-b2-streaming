@@ -111,7 +111,7 @@ logger = logging.getLogger("api")
 # --- App setup ---
 
 app = FastAPI(
-    title="LeRobot S3 Streaming API",
+    title="LeRobot B2 Streaming API",
     description=(
         "Record LeRobot v3 teleoperation episodes, persist them to a "
         "Backblaze B2 bucket, and stream them back chunk-by-chunk over the "
