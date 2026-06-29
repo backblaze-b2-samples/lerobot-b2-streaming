@@ -23,10 +23,13 @@ so neither file crosses the 300-line invariant.
 import logging
 import os
 from pathlib import Path
+from typing import NamedTuple
 
 logger = logging.getLogger(__name__)
 
-# The small, public real-robot v3 dataset and the episodes we pull from it.
+# The DEFAULT small, public real-robot v3 dataset and the episodes we pull from
+# it. The source is selectable per recording (see `real_frame(repo_id=…)`); these
+# constants are only the fallback/default when the caller doesn't choose one.
 SOURCE_REPO_ID = "lerobot/svla_so101_pickplace"
 SOURCE_EPISODES = [0, 1]
 # Reflected into the built episode's v3 metadata in place of "synthetic".
@@ -36,67 +39,96 @@ SOURCE_ROBOT_TYPE = "so100_follower"
 # the repo tree (gitignored regardless) so the committed diff never grows.
 _CACHE_DIR = os.environ.get("LEROBOT_REAL_CACHE", "/tmp/lerobot-b2-streaming-real")
 
-# Module-level singletons populated on first use.
-_dataset = None  # the loaded LeRobotDataset (episodes 0,1)
-_episode_rows: list[list[int]] = []  # absolute hf_dataset row indices per source episode
-_source_cameras: list[str] = []  # e.g. ["observation.images.up", "observation.images.side"]
-
-
 class RealSourceUnavailable(RuntimeError):
-    """Raised when the Hub dataset cannot be loaded (offline / Hub error).
+    """Raised when a Hub dataset cannot be loaded (offline / Hub error / not a
+    usable v3 dataset).
 
-    The caller treats this as the signal to fall back to synthetic frames for a
-    live interactive demo, so the app never hard-crashes offline.
+    For the DEFAULT source the caller treats this as the signal to fall back to
+    synthetic frames so the live demo never hard-crashes offline. For a
+    user-CHOSEN source it is surfaced as an error instead (no silent fallback).
     """
 
 
-def _load_source():
-    """Load + cache the source dataset and its per-episode row index once."""
-    global _dataset, _episode_rows, _source_cameras
-    if _dataset is not None:
-        return _dataset
+class _Source(NamedTuple):
+    """One loaded source dataset plus the indices/metadata needed to sample it."""
+
+    dataset: object  # a lerobot LeRobotDataset
+    episode_rows: list[list[int]]  # absolute hf_dataset row indices per source episode
+    cameras: list[str]  # e.g. ["observation.images.up", "observation.images.side"]
+    fps: int
+    robot_type: str
+
+
+# Per-repo cache, populated on first use and keyed by HF repo_id, so switching
+# the source dataset never re-downloads or thrashes an already-loaded one.
+_CACHE: dict[str, _Source] = {}
+
+
+def _load_source(repo_id: str = SOURCE_REPO_ID, episodes: list[int] | None = None) -> _Source:
+    """Load + cache one source dataset (and its per-episode row index) once per repo_id."""
+    cached = _CACHE.get(repo_id)
+    if cached is not None:
+        return cached
 
     import numpy as np
     from lerobot.datasets.lerobot_dataset import LeRobotDataset
 
     Path(_CACHE_DIR).mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("HF_LEROBOT_HOME", _CACHE_DIR)
+    eps = episodes if episodes is not None else SOURCE_EPISODES
     try:
-        ds = LeRobotDataset(SOURCE_REPO_ID, episodes=SOURCE_EPISODES)
-    except Exception as e:  # network / Hub / decode failure
-        raise RealSourceUnavailable(f"cannot load {SOURCE_REPO_ID}: {e}") from e
+        ds = LeRobotDataset(repo_id, episodes=eps)
+    except Exception as e:  # network / Hub / decode failure / not a v3 dataset
+        raise RealSourceUnavailable(f"cannot load {repo_id}: {e}") from e
+
+    cameras = list(ds.meta.camera_keys)
+    if not cameras:
+        raise RealSourceUnavailable(f"{repo_id} has no camera streams to record")
 
     ep_index = np.asarray(ds.hf_dataset["episode_index"])
     rows: list[list[int]] = []
     for ep in sorted(set(int(x) for x in ep_index.tolist())):
         rows.append([int(i) for i in np.where(ep_index == ep)[0].tolist()])
 
-    _dataset = ds
-    _episode_rows = rows
-    _source_cameras = list(ds.meta.camera_keys)
+    src = _Source(
+        dataset=ds,
+        episode_rows=rows,
+        cameras=cameras,
+        fps=int(ds.fps),
+        robot_type=ds.meta.robot_type or SOURCE_ROBOT_TYPE,
+    )
+    _CACHE[repo_id] = src
     logger.info(
         "Real source loaded: repo=%s episodes=%d cameras=%s fps=%s robot_type=%s",
-        SOURCE_REPO_ID, len(rows), _source_cameras, ds.fps, ds.meta.robot_type,
+        repo_id, len(rows), src.cameras, src.fps, src.robot_type,
     )
-    return ds
+    return src
 
 
-def ensure_loaded() -> None:
-    """Eagerly load the source (raising RealSourceUnavailable if it can't).
+def ensure_loaded(repo_id: str = SOURCE_REPO_ID) -> None:
+    """Eagerly load a source (raising RealSourceUnavailable if it can't).
 
     Used by `lerobot_dataset.build_episode` to decide real-vs-fallback up front.
     """
-    _load_source()
+    _load_source(repo_id)
 
 
-def source_fps() -> int | None:
-    """Native fps of the source dataset (after the source is loaded), else None."""
-    return int(_dataset.fps) if _dataset is not None else None
+def source_fps(repo_id: str = SOURCE_REPO_ID) -> int | None:
+    """Native fps of a loaded source dataset, else None if not yet loaded."""
+    src = _CACHE.get(repo_id)
+    return src.fps if src is not None else None
 
 
-def num_source_episodes() -> int:
-    """How many source episodes are cached (after a successful load)."""
-    return len(_episode_rows)
+def num_source_episodes(repo_id: str = SOURCE_REPO_ID) -> int:
+    """How many source episodes are cached for a repo (after a successful load)."""
+    src = _CACHE.get(repo_id)
+    return len(src.episode_rows) if src is not None else 0
+
+
+def source_robot_type(repo_id: str = SOURCE_REPO_ID) -> str:
+    """robot_type of a loaded source dataset (its real value), else the default."""
+    src = _CACHE.get(repo_id)
+    return src.robot_type if src is not None else SOURCE_ROBOT_TYPE
 
 
 def _resize_square(chw_float_tensor, resolution: int):
@@ -121,38 +153,48 @@ def real_frame(
     total: int,
     device: str,
     source_episode: int = 0,
+    repo_id: str = SOURCE_REPO_ID,
 ):
     """Return one frame dict of REAL robot footage, shaped like ``_synth_frame``.
 
     - ``observation.images.cam_{c}``: square ``resolution`` HxWx3 uint8 images
       from the source dataset's cameras (cycled if the source has fewer cameras
       than requested).
-    - ``observation.state`` / ``action``: the source's real 6-DoF vectors.
+    - ``observation.state`` / ``action``: the source's real 6-DoF vectors when
+      present, otherwise a derived placeholder (the VIDEO is the real asset).
 
-    Frames are indexed into the chosen ``source_episode``; if ``num_frames``
-    exceeds the source episode length we loop over it. ``device`` is accepted
-    for signature parity with ``_synth_frame`` but real frames are decoded on
-    CPU by the SDK regardless (video decode never needs a GPU).
+    ``repo_id`` selects which source dataset to draw from (defaults to the
+    built-in one). Frames are indexed into the chosen ``source_episode``; if
+    ``num_frames`` exceeds the source episode length we loop over it. ``device``
+    is accepted for signature parity with ``_synth_frame`` but real frames are
+    decoded on CPU by the SDK regardless (video decode never needs a GPU).
     """
-    import numpy as np
-
-    ds = _load_source()
-    rows = _episode_rows[source_episode % len(_episode_rows)]
+    src = _load_source(repo_id)
+    rows = src.episode_rows[source_episode % len(src.episode_rows)]
     row = rows[t % len(rows)]
-    sample = ds[row]
+    sample = src.dataset[row]
 
     frame: dict = {}
     for cam in range(num_cameras):
-        src_key = _source_cameras[cam % len(_source_cameras)]
+        src_key = src.cameras[cam % len(src.cameras)]
         frame[f"observation.images.cam_{cam}"] = _resize_square(sample[src_key], resolution)
 
-    state = np.asarray(sample["observation.state"], dtype=np.float32)
-    action = np.asarray(sample["action"], dtype=np.float32)
-    # The source's state/action are already 6-dim here; guard anyway so a
-    # differently-shaped source can't break the v3 6-DoF feature schema.
-    frame["observation.state"] = _fit_6dof(state, t, total)
-    frame["action"] = _fit_6dof(action, t, total)
+    # 6-dim sources pass through verbatim; anything else (or a source missing the
+    # stream entirely) is coerced/derived so the v3 6-DoF feature schema holds.
+    frame["observation.state"] = _fit_6dof(_opt_vec(sample, "observation.state"), t, total)
+    frame["action"] = _fit_6dof(_opt_vec(sample, "action"), t, total)
     return frame
+
+
+def _opt_vec(sample, key: str):
+    """A float32 vector for ``key`` in a decoded sample, or an empty array if the
+    source lacks that stream (so ``_fit_6dof`` derives a placeholder)."""
+    import numpy as np
+
+    val = sample.get(key) if hasattr(sample, "get") else None
+    if val is None:
+        return np.zeros((0,), dtype=np.float32)
+    return np.asarray(val, dtype=np.float32)
 
 
 def _fit_6dof(vec, t: int, total: int):

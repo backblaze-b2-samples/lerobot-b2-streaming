@@ -8,12 +8,16 @@ UI.
 ## Record an Episode (create)
 
 - User navigates to `/episodes/new`
-- Picks finite parameters from selectors — task (preset list), cameras (1–3),
-  frames (30/60/120), fps (10/30), resolution (128/256). Safe defaults are shown
-  as guidance (no autofill button).
-- Submits → backend builds a genuine LeRobot v3 dataset locally (device auto
+- Picks the **source dataset** — a curated dropdown of vetted public LeRobot v3
+  datasets, or "Custom repo…" to type any other public HuggingFace `owner/name`
+  (the bring-your-own-data path). Then picks finite parameters from selectors —
+  task (preset list), cameras (1–3), frames (30/60/120), fps (10/30), resolution
+  (128/256). Safe defaults are shown as guidance (no autofill button).
+- Submits → backend pulls the chosen source's first episodes from the Hub (cached
+  per repo), builds a genuine LeRobot v3 dataset locally (device auto
   CUDA→MPS→CPU), encodes per-camera MP4s, and uploads the v3 tree to the episode's
-  B2 prefix
+  B2 prefix. A custom source that can't load (private/gated/not-v3) returns a
+  clear error rather than recording synthetic frames.
 - On success: toast with bytes uploaded + object count, redirect to the detail page
 - See: [Episode ingest](features/episode-ingest.md)
 

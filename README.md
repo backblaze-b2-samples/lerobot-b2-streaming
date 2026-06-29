@@ -3,7 +3,7 @@
 
 Use a single **[Backblaze B2](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-lerobot-b2-streaming)** bucket as the shared dataset backend for [HuggingFace LeRobot](https://github.com/huggingface/lerobot). Record teleoperation **episodes** (multi-camera MP4 + a Parquet state/action table, in the real **LeRobotDataset v3** layout) built from **real robot camera footage**, persist them to B2, index them by task label, and then **stream them back chunk-by-chunk from B2 over the S3 API** to feed training — with no per-researcher full-dataset download.
 
-The camera frames are genuine teleoperation footage: each recording draws from a couple of episodes of the small public **[`lerobot/svla_so101_pickplace`](https://huggingface.co/datasets/lerobot/svla_so101_pickplace)** dataset (a real SO-101 arm), pulled and cached on demand via the LeRobot SDK's partial-download path — only those one or two episodes are downloaded, never the whole set. (A procedural-gradient generator remains only as a logged offline fallback so the interactive demo never crashes when the Hub is unreachable.)
+The camera frames are genuine teleoperation footage. The **source dataset is selectable in the record form** — a curated dropdown of vetted public LeRobot v3 datasets, plus a **"Custom repo…"** option to point ingest at *your own* public HuggingFace `owner/name`. The default is the small public **[`lerobot/svla_so101_pickplace`](https://huggingface.co/datasets/lerobot/svla_so101_pickplace)** dataset (a real SO-101 arm). Whichever source you pick, only its first one or two episodes are pulled and cached on demand via the LeRobot SDK's partial-download path — never the whole set. A custom source that can't load (private, gated, or not v3) reports a clear error rather than silently substituting frames. (A procedural-gradient generator remains only as a logged offline fallback **for the default source** so the interactive demo never crashes when the Hub is unreachable.)
 
 Built for ML / robotics engineers who already know LeRobot and want object storage instead of a local disk or the HuggingFace Hub. The entire ML workload runs **locally** (CPU by default, GPU auto-detected) — your only credentials are B2.
 
@@ -38,7 +38,7 @@ The measurable, verifiable invariant: **bytes fetched from B2 ≪ total dataset 
 
 ## What you get
 
-- **Record an episode** with the genuine LeRobot v3 API (`LeRobotDataset.create() → add_frame → save_episode → finalize`) — real multi-camera robot footage (from `lerobot/svla_so101_pickplace`) + its 6-DoF state/action table, encoded to MP4 and uploaded to B2.
+- **Record an episode** with the genuine LeRobot v3 API (`LeRobotDataset.create() → add_frame → save_episode → finalize`) — real multi-camera robot footage from a **selectable** public v3 dataset (a curated list, or your own via "Custom repo…"; default `lerobot/svla_so101_pickplace`) + its 6-DoF state/action table, encoded to MP4 and uploaded to B2.
 - **Browse the dataset** in a sample-scoped `/episodes` explorer (filter by task) plus per-camera MP4 playback, state/action metadata, and B2 keys on each detail page.
 - **Stream from B2** at `/stream`: pick an episode or a task split, stream it chunk-by-chunk into a mini training loop, and watch bytes-fetched-via-Range vs total dataset size — with an N-worker concurrent mode for the shared-backend / fleet story.
 - **Full bucket explorer** (`/files`) and **upload** (`/upload`) retained from the starter kit, so the bucket stays fully inspectable.
@@ -99,7 +99,7 @@ Open `.env`, then in the [Backblaze B2 dashboard](https://secure.backblaze.com/b
 pnpm dev
 ```
 
-Frontend at `localhost:3000`, API at `localhost:8000`. Open **Episodes → Record episode**, accept the defaults, and a v3 episode built from real robot footage is uploaded to B2 in a few seconds (the first recording lazily downloads a couple of episodes of `lerobot/svla_so101_pickplace` and caches them). Then open **Stream** to stream it back from B2 and watch the bytes-fetched-vs-total readout.
+Frontend at `localhost:3000`, API at `localhost:8000`. Open **Episodes → Record episode**, accept the defaults (or pick a different **Source dataset** — a curated v3 dataset, or your own via "Custom repo…"), and a v3 episode built from real robot footage is uploaded to B2 in a few seconds (the first recording from a given source lazily downloads a couple of its episodes and caches them). Then open **Stream** to stream it back from B2 and watch the bytes-fetched-vs-total readout.
 
 `pnpm dev` runs `pnpm doctor` first — a preflight check for Node/Python versions, the venv, and a valid `.env`.
 

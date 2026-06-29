@@ -90,6 +90,9 @@ export interface EpisodeCreateRequest {
   num_frames: number;
   fps: number;
   resolution: number;
+  // HuggingFace v3 dataset the real footage is drawn from (a curated preset or a
+  // custom owner/name). Omit to use the server default.
+  source_repo_id?: string;
 }
 
 export interface EpisodeUpdateRequest {
@@ -110,11 +113,13 @@ export interface EpisodeFormOptions {
   num_frames: number[];
   fps: number[];
   resolutions: number[];
+  sources: string[];
   default_task: string;
   default_num_cameras: number;
   default_num_frames: number;
   default_fps: number;
   default_resolution: number;
+  default_source: string;
 }
 
 export interface WorkerStreamStats {

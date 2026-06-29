@@ -113,22 +113,34 @@ def _synth_frame(num_cameras: int, resolution: int, t: int, total: int, device: 
     return frame
 
 
-def _resolve_frame_source(num_cameras: int, resolution: int, device: str, source_episode: int):
+def _resolve_frame_source(
+    num_cameras: int,
+    resolution: int,
+    device: str,
+    source_episode: int,
+    source_repo_id: str = hf_source.SOURCE_REPO_ID,
+    allow_synth_fallback: bool = True,
+):
     """Return (frame_fn, robot_type, source_label).
 
     `frame_fn(t, total)` yields one frame dict. PRIMARY: real footage from
-    `hf_source`. FALLBACK (clearly logged): the procedural `_synth_frame`
-    gradient, used only when the Hub/source can't load so the live interactive
-    demo never hard-crashes offline. Seeded demo data is always real — never
-    this fallback.
+    `hf_source` (the `source_repo_id` dataset). FALLBACK (clearly logged): the
+    procedural `_synth_frame` gradient, used ONLY when `allow_synth_fallback` and
+    the Hub/source can't load, so the live interactive demo never hard-crashes
+    offline. When the source was explicitly chosen by the user
+    (`allow_synth_fallback=False`) a load failure is re-raised so the caller can
+    surface it instead of silently substituting synthetic frames. Seeded demo
+    data is always real — never this fallback.
     """
     try:
-        hf_source.ensure_loaded()
+        hf_source.ensure_loaded(source_repo_id)
     except hf_source.RealSourceUnavailable as e:
+        if not allow_synth_fallback:
+            raise
         logger.warning(
-            "Real footage source unavailable (%s); FALLING BACK to synthetic "
+            "Real footage source %s unavailable (%s); FALLING BACK to synthetic "
             "gradient frames for this episode. This must not be used as seeded "
-            "demo data.", e,
+            "demo data.", source_repo_id, e,
         )
 
         def synth(t: int, total: int):
@@ -138,10 +150,11 @@ def _resolve_frame_source(num_cameras: int, resolution: int, device: str, source
 
     def real(t: int, total: int):
         return hf_source.real_frame(
-            num_cameras, resolution, t, total, device, source_episode=source_episode
+            num_cameras, resolution, t, total, device,
+            source_episode=source_episode, repo_id=source_repo_id,
         )
 
-    return real, hf_source.SOURCE_ROBOT_TYPE, hf_source.SOURCE_REPO_ID
+    return real, hf_source.source_robot_type(source_repo_id), source_repo_id
 
 
 def build_episode(
@@ -154,19 +167,24 @@ def build_episode(
     resolution: int,
     device: str,
     source_episode: int = 0,
+    source_repo_id: str = hf_source.SOURCE_REPO_ID,
+    allow_synth_fallback: bool = True,
 ) -> str:
     """Build a one-episode v3 dataset on disk at `root` using the real API.
 
-    Camera frames come from real teleoperation footage (`hf_source`); a logged
-    synthetic fallback is used only if the Hub is unreachable. Returns the
-    `robot_type` actually written into the v3 metadata ("so100_follower" for
-    real footage, "synthetic" for the offline fallback) so the caller can tell
-    real demo data apart from the fallback.
+    Camera frames come from real teleoperation footage (`hf_source`) drawn from
+    the `source_repo_id` dataset; a logged synthetic fallback is used only if the
+    Hub is unreachable AND `allow_synth_fallback` is set (the default source). For
+    a user-chosen source, `allow_synth_fallback=False` re-raises
+    `RealSourceUnavailable` instead. Returns the `robot_type` actually written
+    into the v3 metadata (the source's real robot_type, or "synthetic" for the
+    offline fallback) so the caller can tell real demo data apart from fallback.
     """
     from lerobot.datasets.lerobot_dataset import LeRobotDataset
 
     frame_fn, robot_type, source_label = _resolve_frame_source(
-        num_cameras, resolution, device, source_episode
+        num_cameras, resolution, device, source_episode,
+        source_repo_id=source_repo_id, allow_synth_fallback=allow_synth_fallback,
     )
 
     ds = LeRobotDataset.create(

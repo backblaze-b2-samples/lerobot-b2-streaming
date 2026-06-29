@@ -4,12 +4,17 @@
 This is the authoritative control surface for all coding agents. Read this first.
 
 `lerobot-b2-streaming` records LeRobot v3 teleoperation episodes from **real
-robot camera footage** (a couple of episodes of the small public
-`lerobot/svla_so101_pickplace` dataset — a real SO-101 arm — pulled and cached on
-demand by `repo/hf_source.py`), persists them to a Backblaze B2 bucket, and
-streams them back chunk-by-chunk over the S3 API. A procedural-gradient frame
-generator survives only as a clearly-logged offline fallback so the live demo
-never hard-crashes when the Hub is unreachable; it is never the seeded demo data.
+robot camera footage** pulled and cached on demand (per repo_id) by
+`repo/hf_source.py`. The **source dataset is user-selectable in the record
+form** — a curated list of vetted public v3 datasets (`PRESET_SOURCES` in
+`types/episodes.py`) plus a "Custom repo…" free-text option for any other public
+HuggingFace `owner/name`; the default is `lerobot/svla_so101_pickplace` (a real
+SO-101 arm). Only the chosen source's first one or two episodes are pulled.
+Episodes are persisted to a Backblaze B2 bucket and streamed back chunk-by-chunk
+over the S3 API. A procedural-gradient frame generator survives only as a
+clearly-logged offline fallback **for the default source** (a user-chosen source
+that can't load fails loudly with a 400 instead); it is never the seeded demo
+data.
 The
 marquee feature is the **B2/S3 streaming bridge** (`repo/b2_stream.py`) — see
 ARCHITECTURE.md. `StreamingLeRobotDataset` is HuggingFace-Hub-only; this bridge

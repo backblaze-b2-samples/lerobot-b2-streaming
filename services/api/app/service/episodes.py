@@ -17,6 +17,7 @@ Each episode owns its own prefix, so the delete verb is naturally scoped.
 
 import logging
 import mimetypes
+import re
 import shutil
 from pathlib import Path
 
@@ -31,6 +32,8 @@ from app.repo import (
     upload_path,
 )
 from app.repo import lerobot_dataset as ld
+from app.repo.hf_source import SOURCE_REPO_ID as DEFAULT_SOURCE_REPO_ID
+from app.repo.hf_source import RealSourceUnavailable
 from app.service import episode_meta
 from app.types import (
     Episode,
@@ -43,6 +46,7 @@ from app.types.episodes import (
     ALLOWED_NUM_FRAMES,
     ALLOWED_RESOLUTIONS,
     PRESET_TASKS,
+    SOURCE_REPO_ID_PATTERN,
 )
 from app.types.formatting import humanize_bytes
 
@@ -95,6 +99,13 @@ def _validate_create(req: EpisodeCreateRequest) -> None:
         raise EpisodeError("fps must be one of 10, 30")
     if req.resolution not in ALLOWED_RESOLUTIONS:
         raise EpisodeError("resolution must be one of 128, 256")
+    if req.source_repo_id is not None and not re.match(
+        SOURCE_REPO_ID_PATTERN, req.source_repo_id
+    ):
+        raise EpisodeError(
+            f"Invalid source dataset '{req.source_repo_id}' — expected a "
+            "HuggingFace repo id like 'owner/name'"
+        )
 
 
 def _content_type(key: str) -> str:
@@ -127,6 +138,11 @@ def create_episode(req: EpisodeCreateRequest) -> EpisodeCreateResult:
     index = _next_episode_index()
     device = ld.select_device()
     local_root = ld.make_temp_root()
+    source = req.source_repo_id or DEFAULT_SOURCE_REPO_ID
+    # The synthetic-frame fallback exists only so the DEFAULT source never crashes
+    # the demo offline. A user-chosen source must fail loudly rather than silently
+    # substituting synthetic frames the user didn't ask for.
+    allow_synth_fallback = req.source_repo_id in (None, DEFAULT_SOURCE_REPO_ID)
     try:
         # Rotate which real source episode supplies the footage so successive
         # recordings show different teleoperation clips (wraps in hf_source).
@@ -140,15 +156,24 @@ def create_episode(req: EpisodeCreateRequest) -> EpisodeCreateResult:
             resolution=req.resolution,
             device=device,
             source_episode=index,
+            source_repo_id=source,
+            allow_synth_fallback=allow_synth_fallback,
         )
         bytes_uploaded, count = _upload_tree(local_root, index)
+    except RealSourceUnavailable as e:
+        raise EpisodeError(
+            f"Couldn't load dataset '{source}'. It must be a public LeRobot v3 "
+            f"dataset ({e}).",
+            400,
+        ) from e
     finally:
         _cleanup_root(local_root)
 
     logger.info(
         "Episode created: index=%d task=%s frames=%d cameras=%d device=%s "
-        "robot_type=%s bytes=%d",
-        index, req.task, req.num_frames, req.num_cameras, device, robot_type, bytes_uploaded,
+        "source=%s robot_type=%s bytes=%d",
+        index, req.task, req.num_frames, req.num_cameras, device, source,
+        robot_type, bytes_uploaded,
     )
     episode = get_episode(index)
     return EpisodeCreateResult(

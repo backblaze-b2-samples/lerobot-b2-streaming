@@ -26,6 +26,7 @@ from app.types.episodes import (
     ALLOWED_NUM_CAMERAS,
     ALLOWED_NUM_FRAMES,
     ALLOWED_RESOLUTIONS,
+    PRESET_SOURCES,
     PRESET_TASKS,
 )
 
@@ -47,11 +48,13 @@ async def episode_options():
         num_frames=ALLOWED_NUM_FRAMES,
         fps=ALLOWED_FPS,
         resolutions=ALLOWED_RESOLUTIONS,
+        sources=PRESET_SOURCES,
         default_task=PRESET_TASKS[0],
         default_num_cameras=2,
         default_num_frames=60,
         default_fps=30,
         default_resolution=256,
+        default_source=PRESET_SOURCES[0],
     )
 
 

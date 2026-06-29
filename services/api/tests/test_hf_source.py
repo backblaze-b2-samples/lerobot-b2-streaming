@@ -23,6 +23,7 @@ def test_real_frame_signature_is_synth_compatible():
     real_params = list(inspect.signature(hf_source.real_frame).parameters)
     assert real_params[:5] == ["num_cameras", "resolution", "t", "total", "device"]
     assert "source_episode" in real_params
+    assert "repo_id" in real_params
 
 
 def test_source_constants_point_at_a_real_v3_dataset():
@@ -53,7 +54,7 @@ def test_build_episode_falls_back_to_synthetic_when_source_unavailable(monkeypat
     fallback robot_type rather than raising — so the live demo never crashes
     offline. We stub the loader to fail and the LeRobotDataset to a no-op."""
 
-    def boom():
+    def boom(*_args, **_kwargs):
         raise hf_source.RealSourceUnavailable("offline")
 
     monkeypatch.setattr(hf_source, "_load_source", boom)
@@ -66,6 +67,61 @@ def test_build_episode_falls_back_to_synthetic_when_source_unavailable(monkeypat
     frame = frame_fn(0, 30)
     assert "observation.images.cam_0" in frame
     assert frame["observation.images.cam_0"].shape == (128, 128, 3)
+
+
+def test_resolve_frame_source_reraises_for_a_chosen_source(monkeypatch):
+    """A user-CHOSEN source (allow_synth_fallback=False) must surface a load
+    failure instead of silently substituting synthetic frames."""
+
+    def boom(*_args, **_kwargs):
+        raise hf_source.RealSourceUnavailable("not a v3 dataset")
+
+    monkeypatch.setattr(hf_source, "_load_source", boom)
+    with pytest.raises(hf_source.RealSourceUnavailable):
+        ld._resolve_frame_source(
+            num_cameras=1,
+            resolution=128,
+            device="cpu",
+            source_episode=0,
+            source_repo_id="owner/custom",
+            allow_synth_fallback=False,
+        )
+
+
+def test_sources_are_cached_per_repo_id(monkeypatch):
+    """Each source is cached under its repo_id so switching datasets never
+    thrashes an already-loaded one, and the metadata accessors read per repo."""
+    monkeypatch.setattr(hf_source, "_CACHE", {})
+    a = hf_source._Source(
+        dataset=object(),
+        episode_rows=[[0, 1], [2, 3], [4, 5]],
+        cameras=["observation.images.up", "observation.images.side"],
+        fps=30,
+        robot_type="so100_follower",
+    )
+    b = hf_source._Source(
+        dataset=object(),
+        episode_rows=[[0]],
+        cameras=["observation.image"],
+        fps=10,
+        robot_type="aloha",
+    )
+    hf_source._CACHE["owner/a"] = a
+    hf_source._CACHE["owner/b"] = b
+
+    # Pre-seeded entries are returned without ever touching the (heavy) loader.
+    assert hf_source._load_source("owner/a") is a
+    assert hf_source.num_source_episodes("owner/a") == 3
+    assert hf_source.num_source_episodes("owner/b") == 1
+    assert hf_source.source_fps("owner/a") == 30
+    assert hf_source.source_fps("owner/b") == 10
+    assert hf_source.source_robot_type("owner/a") == "so100_follower"
+    assert hf_source.source_robot_type("owner/b") == "aloha"
+
+    # An unknown repo reports "not loaded" — never another repo's data.
+    assert hf_source.num_source_episodes("owner/unknown") == 0
+    assert hf_source.source_fps("owner/unknown") is None
+    assert hf_source.source_robot_type("owner/unknown") == hf_source.SOURCE_ROBOT_TYPE
 
 
 @pytest.mark.skipif(
