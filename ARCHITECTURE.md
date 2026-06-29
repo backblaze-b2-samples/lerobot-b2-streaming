@@ -6,7 +6,7 @@
 - **apps/web/** — Next.js 16 frontend (App Router, Tailwind v4, shadcn/ui)
   - Dashboard with dataset stats, ingest activity, recent episodes
   - `/episodes` sample-scoped explorer + `/episodes/[id]` detail (per-camera MP4, metadata, relabel, delete)
-  - `/episodes/new` record form (synthetic v3 episode → B2)
+  - `/episodes/new` record form (real-footage v3 episode → B2)
   - `/stream` streaming run surface (single + N-worker, bytes-fetched vs total)
   - Retained `/files` full-bucket explorer + `/upload`
   - Dark mode via `next-themes`
@@ -87,6 +87,8 @@ services/api/
       b2_client.py         Shared boto3 S3 client (custom UA) + file-upload ops
       b2_objects.py        Dataset/streaming S3 ops: ranged GET, list, head, delete-prefix
       lerobot_dataset.py   Real v3 build (create→add_frame→save_episode→finalize) + read
+      hf_source.py         Real-robot footage source (lerobot/svla_so101_pickplace);
+                           synthetic gradient kept only as a logged offline fallback
       b2_stream.py         The B2/S3 streaming bridge (ranged-GET Parquet + video)
     service/
       episodes.py          Episode lifecycle orchestration
@@ -124,7 +126,12 @@ was designed for:
 ## Other data flows
 
 - **Ingest**: Browser → `POST /episodes` → service builds a v3 episode locally
-  (device auto CUDA→MPS→CPU) → uploads the tree to the episode's B2 prefix.
+  from real teleoperation footage (`repo/hf_source.py` lazily pulls a couple of
+  episodes of `lerobot/svla_so101_pickplace` and caches them; device auto
+  CUDA→MPS→CPU) → uploads the tree to the episode's B2 prefix. If the Hub is
+  unreachable the build falls back to procedural frames (logged) so the live
+  demo never crashes; `robot_type` records which source was used
+  (`so100_follower` for real, `synthetic` for the fallback).
 - **Index/list**: Browser → `GET /episodes` → reads `meta/*` for each episode.
 - **Read detail**: `GET /episodes/{i}` + `GET /episodes/{i}/video?camera=…` (presigned MP4).
 - **Edit (relabel)**: `PATCH /episodes/{i}` → rewrites the task in the v3 meta on B2.
@@ -157,6 +164,7 @@ ever required.
 
 - Streaming bridge: `services/api/app/repo/b2_stream.py`
 - LeRobot v3 adapter: `services/api/app/repo/lerobot_dataset.py`
+- Real-robot footage source: `services/api/app/repo/hf_source.py`
 - Dataset/streaming S3 ops: `services/api/app/repo/b2_objects.py`
 - Episode orchestration: `services/api/app/service/episodes.py`
 - Streaming runs: `services/api/app/service/streaming.py`

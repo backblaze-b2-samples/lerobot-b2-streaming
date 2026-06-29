@@ -1,10 +1,16 @@
-<!-- last_verified: 2026-06-25 -->
+<!-- last_verified: 2026-06-29 -->
 # AGENTS.md
 
 This is the authoritative control surface for all coding agents. Read this first.
 
-`lerobot-b2-streaming` records LeRobot v3 teleoperation episodes, persists them to
-a Backblaze B2 bucket, and streams them back chunk-by-chunk over the S3 API. The
+`lerobot-b2-streaming` records LeRobot v3 teleoperation episodes from **real
+robot camera footage** (a couple of episodes of the small public
+`lerobot/svla_so101_pickplace` dataset — a real SO-101 arm — pulled and cached on
+demand by `repo/hf_source.py`), persists them to a Backblaze B2 bucket, and
+streams them back chunk-by-chunk over the S3 API. A procedural-gradient frame
+generator survives only as a clearly-logged offline fallback so the live demo
+never hard-crashes when the Hub is unreachable; it is never the seeded demo data.
+The
 marquee feature is the **B2/S3 streaming bridge** (`repo/b2_stream.py`) — see
 ARCHITECTURE.md. `StreamingLeRobotDataset` is HuggingFace-Hub-only; this bridge
 fills [LeRobot#764](https://github.com/huggingface/lerobot/issues/764). Never
@@ -23,6 +29,7 @@ services/api/      FastAPI backend (layered: types/config/repo/service/runtime)
   requirements.txt         base deps (no torch) — boots + structural tests
   requirements-ml.txt      ML deps (lerobot, torch, torchcodec) — pinned window
   app/repo/lerobot_dataset.py  real LeRobot v3 build/read (SDK contained here)
+  app/repo/hf_source.py        real-robot footage source (lerobot/svla_so101_pickplace)
   app/repo/b2_objects.py       dataset/streaming S3 ops (ranged GET, delete-prefix)
   app/repo/b2_stream.py        the B2/S3 streaming bridge (marquee)
   app/service/                 episodes.py, streaming.py, dataset_stats.py

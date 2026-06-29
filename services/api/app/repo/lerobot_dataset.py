@@ -1,16 +1,29 @@
 """Adapter over the real HuggingFace LeRobot v3 dataset SDK.
 
-This is the only place LeRobot / torch are imported. It synthesizes a
-teleoperation episode (procedural multi-camera frames + numpy state/action),
-builds it on local disk with the genuine
-`LeRobotDataset.create() -> add_frame -> save_episode -> finalize` v3 API, and
-reads back the v3 metadata (info.json + meta/episodes/*.parquet). Heavy ML
-imports are lazy so the FastAPI app boots and the structural tests run without
-torch/lerobot installed (they live in the separate requirements-ml.txt step).
+This (with `hf_source.py`) is the only place LeRobot / torch are imported. It
+builds a teleoperation episode on local disk with the genuine
+`LeRobotDataset.create() -> add_frame -> save_episode -> finalize` v3 API, then
+reads back the v3 metadata (info.json + meta/episodes/*.parquet).
+
+The camera frames are REAL teleoperation footage: `hf_source.real_frame()`
+pulls a couple of episodes from the small public `lerobot/svla_so101_pickplace`
+dataset (a real SO-101 arm) and serves resized frames + the source's real 6-DoF
+state/action vectors. `_synth_frame` (procedural moving gradients) remains ONLY
+as a clearly-logged offline fallback so the live interactive demo never
+hard-crashes when the Hub is unreachable — it is never the seeded demo data.
+
+Heavy ML imports are lazy so the FastAPI app boots and the structural tests run
+without torch/lerobot installed (they live in the separate requirements-ml.txt
+step).
 """
 
+import logging
 import tempfile
 from pathlib import Path
+
+from app.repo import hf_source
+
+logger = logging.getLogger(__name__)
 
 
 def select_device() -> str:
@@ -100,6 +113,37 @@ def _synth_frame(num_cameras: int, resolution: int, t: int, total: int, device: 
     return frame
 
 
+def _resolve_frame_source(num_cameras: int, resolution: int, device: str, source_episode: int):
+    """Return (frame_fn, robot_type, source_label).
+
+    `frame_fn(t, total)` yields one frame dict. PRIMARY: real footage from
+    `hf_source`. FALLBACK (clearly logged): the procedural `_synth_frame`
+    gradient, used only when the Hub/source can't load so the live interactive
+    demo never hard-crashes offline. Seeded demo data is always real — never
+    this fallback.
+    """
+    try:
+        hf_source.ensure_loaded()
+    except hf_source.RealSourceUnavailable as e:
+        logger.warning(
+            "Real footage source unavailable (%s); FALLING BACK to synthetic "
+            "gradient frames for this episode. This must not be used as seeded "
+            "demo data.", e,
+        )
+
+        def synth(t: int, total: int):
+            return _synth_frame(num_cameras, resolution, t, total, device)
+
+        return synth, "synthetic", "synthetic-fallback"
+
+    def real(t: int, total: int):
+        return hf_source.real_frame(
+            num_cameras, resolution, t, total, device, source_episode=source_episode
+        )
+
+    return real, hf_source.SOURCE_ROBOT_TYPE, hf_source.SOURCE_REPO_ID
+
+
 def build_episode(
     root: str,
     repo_id: str,
@@ -109,24 +153,41 @@ def build_episode(
     fps: int,
     resolution: int,
     device: str,
-) -> None:
-    """Build a one-episode v3 dataset on disk at `root` using the real API."""
+    source_episode: int = 0,
+) -> str:
+    """Build a one-episode v3 dataset on disk at `root` using the real API.
+
+    Camera frames come from real teleoperation footage (`hf_source`); a logged
+    synthetic fallback is used only if the Hub is unreachable. Returns the
+    `robot_type` actually written into the v3 metadata ("so100_follower" for
+    real footage, "synthetic" for the offline fallback) so the caller can tell
+    real demo data apart from the fallback.
+    """
     from lerobot.datasets.lerobot_dataset import LeRobotDataset
+
+    frame_fn, robot_type, source_label = _resolve_frame_source(
+        num_cameras, resolution, device, source_episode
+    )
 
     ds = LeRobotDataset.create(
         repo_id=repo_id,
         fps=fps,
         features=_features(num_cameras, resolution),
         root=root,
-        robot_type="synthetic",
+        robot_type=robot_type,
         use_videos=True,
     )
     for t in range(num_frames):
-        frame = _synth_frame(num_cameras, resolution, t, num_frames, device)
+        frame = frame_fn(t, num_frames)
         frame["task"] = task
         ds.add_frame(frame)
     ds.save_episode()
     ds.finalize()
+    logger.info(
+        "Built v3 episode: frames=%d cameras=%d source=%s robot_type=%s",
+        num_frames, num_cameras, source_label, robot_type,
+    )
+    return robot_type
 
 
 def make_temp_root() -> str:

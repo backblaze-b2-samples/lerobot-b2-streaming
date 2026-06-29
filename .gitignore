@@ -50,5 +50,11 @@ test-results/
 # Local runtime data (download counter, etc.)
 services/api/data/
 
+# Real-robot footage source cache (hf_source.py); defaults to /tmp but ignore
+# any in-tree override of LEROBOT_REAL_CACHE so the downloaded dataset never
+# lands in the committed diff.
+lerobot-b2-streaming-real/
+**/lerobot-b2-streaming-real/
+
 # Pipeline orchestrator artifacts (build-result.json, etc.) — not part of the sample
 .local/

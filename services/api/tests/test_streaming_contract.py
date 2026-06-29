@@ -52,6 +52,19 @@ def test_lerobot_build_helpers_present():
         assert hasattr(ld, fn), f"missing lerobot_dataset.{fn}"
 
 
+def test_build_episode_sources_real_footage():
+    """The frame source is the real Hub footage adapter, with a synthetic
+    fallback — not synthetic-as-primary. Guard the wiring without any network."""
+    from app.repo import hf_source
+
+    # The real source is wired in and resolves to a frame fn + robot_type.
+    assert hasattr(ld, "_resolve_frame_source")
+    assert hf_source.SOURCE_REPO_ID.startswith("lerobot/")
+    # build_episode forwards a source_episode selector to rotate real clips.
+    params = list(inspect.signature(ld.build_episode).parameters)
+    assert "source_episode" in params
+
+
 def test_form_option_sets_nonempty():
     assert PRESET_TASKS
     assert ALLOWED_NUM_CAMERAS == [1, 2, 3]

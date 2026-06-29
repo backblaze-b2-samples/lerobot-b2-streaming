@@ -74,7 +74,7 @@ export function EpisodeList() {
           <EmptyState
             icon={Film}
             title="No episodes in this dataset yet"
-            description="Record a synthetic teleoperation episode to populate the B2 dataset prefix."
+            description="Record a teleoperation episode from real robot footage to populate the B2 dataset prefix."
             action={
               <Button asChild size="sm">
                 <Link href="/episodes/new">Record episode</Link>

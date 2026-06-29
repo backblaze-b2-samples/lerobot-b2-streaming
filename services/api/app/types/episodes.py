@@ -46,7 +46,7 @@ class Episode(BaseModel):
 
 
 class EpisodeCreateRequest(BaseModel):
-    """Create form payload — record a synthetic episode and push it to B2."""
+    """Create form payload — record a real-footage episode and push it to B2."""
 
     task: str
     num_cameras: int = 2

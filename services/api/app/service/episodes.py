@@ -128,7 +128,9 @@ def create_episode(req: EpisodeCreateRequest) -> EpisodeCreateResult:
     device = ld.select_device()
     local_root = ld.make_temp_root()
     try:
-        ld.build_episode(
+        # Rotate which real source episode supplies the footage so successive
+        # recordings show different teleoperation clips (wraps in hf_source).
+        robot_type = ld.build_episode(
             root=local_root,
             repo_id=f"local/ep_{index:06d}",
             task=req.task,
@@ -137,14 +139,16 @@ def create_episode(req: EpisodeCreateRequest) -> EpisodeCreateResult:
             fps=req.fps,
             resolution=req.resolution,
             device=device,
+            source_episode=index,
         )
         bytes_uploaded, count = _upload_tree(local_root, index)
     finally:
         _cleanup_root(local_root)
 
     logger.info(
-        "Episode created: index=%d task=%s frames=%d cameras=%d device=%s bytes=%d",
-        index, req.task, req.num_frames, req.num_cameras, device, bytes_uploaded,
+        "Episode created: index=%d task=%s frames=%d cameras=%d device=%s "
+        "robot_type=%s bytes=%d",
+        index, req.task, req.num_frames, req.num_cameras, device, robot_type, bytes_uploaded,
     )
     episode = get_episode(index)
     return EpisodeCreateResult(
