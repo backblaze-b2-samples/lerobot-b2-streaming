@@ -5,6 +5,24 @@ Use a single **[Backblaze B2](https://www.backblaze.com/sign-up/ai-cloud-storage
 
 Built for ML / robotics engineers who already know LeRobot and want object storage instead of a local disk or the HuggingFace Hub. The entire ML workload runs **locally** (CPU by default, GPU auto-detected) — your only credentials are B2.
 
+## What it looks like
+
+**Dashboard** — dataset-on-B2 metrics (episodes, frames, cameras, tasks, total size), a 7-day ingest-activity chart, and a recent-episodes table.
+
+![Dashboard with dataset metrics, ingest chart, and recent episodes](docs/images/dashboard.png)
+
+**Episodes** — the sample-scoped dataset library on B2, with per-episode frames, cameras, fps, and size, a task filter, and stream/delete actions.
+
+![Episodes library listing recorded teleoperation episodes](docs/images/episodes.png)
+
+**Episode detail** — per-camera MP4 playback, the v3 metadata (frame range, resolution, object count, B2 prefix), and inline task relabeling.
+
+![Episode detail with multi-camera video players and v3 metadata](docs/images/episode-detail.png)
+
+**Stream from B2** — the marquee ranged-GET bridge: stream a task split across N workers and watch bytes-fetched-vs-total, throughput, and per-worker stats.
+
+![Streaming run showing 31% of the dataset fetched across four workers](docs/images/stream.png)
+
 ## The honest framing: a B2/S3 streaming bridge (fills LeRobot#764)
 
 LeRobot's `StreamingLeRobotDataset` is **HuggingFace-Hub-only**. It takes a `repo_id` and streams from the Hub; it has **no** native support for S3, a custom endpoint, fsspec, or even an arbitrary local `root` — non-Hub roots are an open feature request, [huggingface/lerobot#764](https://github.com/huggingface/lerobot/issues/764). So "point `StreamingLeRobotDataset` at B2" is **not** something stock LeRobot can do, and this sample does **not** pretend otherwise.
