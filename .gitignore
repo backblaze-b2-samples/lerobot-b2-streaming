@@ -49,3 +49,6 @@ test-results/
 
 # Local runtime data (download counter, etc.)
 services/api/data/
+
+# Pipeline orchestrator artifacts (build-result.json, etc.) — not part of the sample
+.local/
