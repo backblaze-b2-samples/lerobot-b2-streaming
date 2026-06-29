@@ -23,7 +23,7 @@ Built for ML / robotics engineers who already know LeRobot and want object stora
 
 **Stream from B2** — the marquee ranged-GET bridge: stream a task split across N workers and watch bytes-fetched-vs-total, throughput, and per-worker stats.
 
-![Streaming run showing 31% of the dataset fetched across four workers](docs/images/stream.png)
+![Streaming run showing 35% of the dataset fetched across four workers](docs/images/stream.png)
 
 ## The honest framing: a B2/S3 streaming bridge (fills LeRobot#764)
 
