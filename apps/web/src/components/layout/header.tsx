@@ -111,7 +111,11 @@ export function Header() {
           size="icon"
           className="h-8 w-8 text-nav-foreground/80 hover:text-nav-foreground hover:bg-white/10 rounded-md"
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+          // Static label: next-themes returns the stored theme synchronously on
+          // the client's first render but undefined on the server, so a
+          // theme-derived aria-label hydration-mismatches once a theme is saved.
+          // The Sun/Moon icons already convey state via CSS `dark:` classes.
+          aria-label="Toggle theme"
         >
           <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
           <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
