@@ -1,5 +1,7 @@
-<!-- last_verified: 2026-06-29 -->
+<!-- last_verified: 2026-06-30 -->
 # LeRobot B2 Streaming
+
+**Stream HuggingFace LeRobot v3 robot datasets straight from a Backblaze B2 bucket over the S3 API — train without downloading the whole dataset.**
 
 Use a single **[Backblaze B2](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-lerobot-b2-streaming)** bucket as the shared dataset backend for [HuggingFace LeRobot](https://github.com/huggingface/lerobot). Record teleoperation **episodes** (multi-camera MP4 + a Parquet state/action table, in the real **LeRobotDataset v3** layout) built from **real robot camera footage**, persist them to B2, index them by task label, and then **stream them back chunk-by-chunk from B2 over the S3 API** to feed training — with no per-researcher full-dataset download.
 
@@ -25,7 +27,7 @@ Built for ML / robotics engineers who already know LeRobot and want object stora
 
 ![Streaming run showing 35% of the dataset fetched across four workers](docs/images/stream.png)
 
-## The honest framing: a B2/S3 streaming bridge (fills LeRobot#764)
+## Does LeRobot stream from S3 / B2? (the honest framing — fills LeRobot#764)
 
 LeRobot's `StreamingLeRobotDataset` is **HuggingFace-Hub-only**. It takes a `repo_id` and streams from the Hub; it has **no** native support for S3, a custom endpoint, fsspec, or even an arbitrary local `root` — non-Hub roots are an open feature request, [huggingface/lerobot#764](https://github.com/huggingface/lerobot/issues/764). So "point `StreamingLeRobotDataset` at B2" is **not** something stock LeRobot can do, and this sample does **not** pretend otherwise.
 
@@ -105,7 +107,7 @@ Frontend at `localhost:3000`, API at `localhost:8000`. Open **Episodes → Recor
 
 ## Core Features
 
-- [Episode ingest → B2](docs/features/episode-ingest.md) — synthesize + build a v3 episode and upload it to B2
+- [Episode ingest → B2](docs/features/episode-ingest.md) — build a v3 episode from real robot footage and upload it to B2
 - [Dataset index & query](docs/features/dataset-index-query.md) — list/filter episodes by task from v3 metadata on B2
 - [B2 S3 chunk-by-chunk streaming](docs/features/b2-streaming.md) — the marquee ranged-GET bridge (fills LeRobot#764)
 - [Episode library explorer](docs/features/episode-library.md) — the sample-scoped `/episodes` browser
