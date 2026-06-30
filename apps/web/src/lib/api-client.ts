@@ -9,6 +9,7 @@ import type {
   EpisodeUpdateRequest,
   FileMetadata,
   FileUploadResponse,
+  SourceInfo,
   StreamRunRequest,
   StreamRunStats,
   UploadStats,
@@ -165,6 +166,14 @@ export async function deleteFile(key: string) {
 
 export async function getEpisodeOptions() {
   return apiFetch<EpisodeFormOptions>("/episodes/options");
+}
+
+/** Real shape of a source dataset (cameras, fps, native resolution, dims,
+ * length) — what an ingest will reproduce. Throws ApiError(400) if it can't
+ * load. Omit `repoId` for the server default source. */
+export async function getSourceInfo(repoId?: string) {
+  const q = repoId ? `?repo_id=${encodeURIComponent(repoId)}` : "";
+  return apiFetch<SourceInfo>(`/episodes/source-info${q}`);
 }
 
 export async function getDatasetStats() {

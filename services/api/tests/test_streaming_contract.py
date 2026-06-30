@@ -10,10 +10,8 @@ import inspect
 from app.repo import b2_objects, b2_stream
 from app.repo import lerobot_dataset as ld
 from app.types.episodes import (
-    ALLOWED_FPS,
-    ALLOWED_NUM_CAMERAS,
-    ALLOWED_NUM_FRAMES,
-    ALLOWED_RESOLUTIONS,
+    MAX_EPISODE_FRAMES,
+    PRESET_SOURCES,
     PRESET_TASKS,
 )
 
@@ -66,11 +64,12 @@ def test_build_episode_sources_real_footage():
 
 
 def test_form_option_sets_nonempty():
+    # The recording shape is now derived from the source, not picked from knobs.
+    # The form only offers task labels, the curated source shortlist, and a cap.
     assert PRESET_TASKS
-    assert ALLOWED_NUM_CAMERAS == [1, 2, 3]
-    assert ALLOWED_NUM_FRAMES == [30, 60, 120]
-    assert ALLOWED_FPS == [10, 30]
-    assert ALLOWED_RESOLUTIONS == [128, 256]
+    assert PRESET_SOURCES
+    assert PRESET_SOURCES[0].startswith("lerobot/")
+    assert MAX_EPISODE_FRAMES >= 1
 
 
 def test_episode_routes_registered():

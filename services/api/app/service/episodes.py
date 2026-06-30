@@ -26,6 +26,7 @@ from app.repo import (
     delete_prefix,
     get_object_bytes,
     head_size,
+    hf_source,
     list_keys,
     presign_key,
     put_bytes,
@@ -39,12 +40,10 @@ from app.types import (
     Episode,
     EpisodeCreateRequest,
     EpisodeCreateResult,
+    SourceInfo,
 )
 from app.types.episodes import (
-    ALLOWED_FPS,
-    ALLOWED_NUM_CAMERAS,
-    ALLOWED_NUM_FRAMES,
-    ALLOWED_RESOLUTIONS,
+    MAX_EPISODE_FRAMES,
     PRESET_TASKS,
     SOURCE_REPO_ID_PATTERN,
 )
@@ -88,24 +87,20 @@ def _next_episode_index() -> int:
     return (max(seen) + 1) if seen else 0
 
 
+def _validate_source_repo_id(repo_id: str | None) -> None:
+    if repo_id is not None and not re.match(SOURCE_REPO_ID_PATTERN, repo_id):
+        raise EpisodeError(
+            f"Invalid source dataset '{repo_id}' — expected a HuggingFace repo id "
+            "like 'owner/name'"
+        )
+
+
 def _validate_create(req: EpisodeCreateRequest) -> None:
     if req.task not in PRESET_TASKS:
         raise EpisodeError(f"Unknown task '{req.task}'")
-    if req.num_cameras not in ALLOWED_NUM_CAMERAS:
-        raise EpisodeError("num_cameras must be one of 1, 2, 3")
-    if req.num_frames not in ALLOWED_NUM_FRAMES:
-        raise EpisodeError("num_frames must be one of 30, 60, 120")
-    if req.fps not in ALLOWED_FPS:
-        raise EpisodeError("fps must be one of 10, 30")
-    if req.resolution not in ALLOWED_RESOLUTIONS:
-        raise EpisodeError("resolution must be one of 128, 256")
-    if req.source_repo_id is not None and not re.match(
-        SOURCE_REPO_ID_PATTERN, req.source_repo_id
-    ):
-        raise EpisodeError(
-            f"Invalid source dataset '{req.source_repo_id}' — expected a "
-            "HuggingFace repo id like 'owner/name'"
-        )
+    _validate_source_repo_id(req.source_repo_id)
+    if req.max_frames is not None and not (1 <= req.max_frames <= MAX_EPISODE_FRAMES):
+        raise EpisodeError(f"max_frames must be between 1 and {MAX_EPISODE_FRAMES}")
 
 
 def _content_type(key: str) -> str:
@@ -144,20 +139,19 @@ def create_episode(req: EpisodeCreateRequest) -> EpisodeCreateResult:
     # substituting synthetic frames the user didn't ask for.
     allow_synth_fallback = req.source_repo_id in (None, DEFAULT_SOURCE_REPO_ID)
     try:
-        # Rotate which real source episode supplies the footage so successive
-        # recordings show different teleoperation clips (wraps in hf_source).
+        # The recorded shape (cameras/fps/resolution/dims/length) is derived from
+        # the source itself inside build_episode. We only rotate which real source
+        # episode supplies the footage so successive recordings differ, and pass an
+        # optional frame cap.
         robot_type = ld.build_episode(
             root=local_root,
             repo_id=f"local/ep_{index:06d}",
             task=req.task,
-            num_cameras=req.num_cameras,
-            num_frames=req.num_frames,
-            fps=req.fps,
-            resolution=req.resolution,
             device=device,
             source_episode=index,
             source_repo_id=source,
             allow_synth_fallback=allow_synth_fallback,
+            max_frames=req.max_frames,
         )
         bytes_uploaded, count = _upload_tree(local_root, index)
     except RealSourceUnavailable as e:
@@ -169,13 +163,13 @@ def create_episode(req: EpisodeCreateRequest) -> EpisodeCreateResult:
     finally:
         _cleanup_root(local_root)
 
+    episode = get_episode(index)
     logger.info(
         "Episode created: index=%d task=%s frames=%d cameras=%d device=%s "
         "source=%s robot_type=%s bytes=%d",
-        index, req.task, req.num_frames, req.num_cameras, device, source,
+        index, req.task, episode.num_frames, episode.num_cameras, device, source,
         robot_type, bytes_uploaded,
     )
-    episode = get_episode(index)
     return EpisodeCreateResult(
         episode=episode,
         bytes_uploaded=bytes_uploaded,
@@ -183,6 +177,26 @@ def create_episode(req: EpisodeCreateRequest) -> EpisodeCreateResult:
         object_count=count,
         device=device,
     )
+
+
+def inspect_source(repo_id: str | None) -> SourceInfo:
+    """Probe a source dataset and report the real shape an ingest will reproduce.
+
+    Powers the create form's preview + early validation: a chosen source that
+    can't load (private/gated/not-v3/offline) surfaces a 400 here, before any
+    recording is attempted, so the user sees exactly what will be recorded.
+    """
+    _validate_source_repo_id(repo_id)
+    source = repo_id or DEFAULT_SOURCE_REPO_ID
+    try:
+        info = hf_source.inspect_source(source)
+    except RealSourceUnavailable as e:
+        raise EpisodeError(
+            f"Couldn't load dataset '{source}'. It must be a public LeRobot v3 "
+            f"dataset ({e}).",
+            400,
+        ) from e
+    return SourceInfo(**info)
 
 
 def _download_meta(index: int) -> str:

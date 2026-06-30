@@ -74,7 +74,9 @@ export interface Episode {
   fps: number;
   num_cameras: number;
   cameras: string[];
-  resolution: number;
+  // Native (non-square) frame size of the first camera.
+  frame_height: number;
+  frame_width: number;
   dataset_from_index: number;
   dataset_to_index: number;
   size_bytes: number;
@@ -84,15 +86,35 @@ export interface Episode {
   videos: EpisodeCameraVideo[];
 }
 
-export interface EpisodeCreateRequest {
-  task: string;
-  num_cameras: number;
-  num_frames: number;
+export interface SourceCamera {
+  name: string;
+  height: number;
+  width: number;
+}
+
+// The real shape of a source dataset — what an ingest will faithfully reproduce.
+// Fetched to preview/validate a source before recording.
+export interface SourceInfo {
+  repo_id: string;
+  robot_type: string;
   fps: number;
-  resolution: number;
+  cameras: SourceCamera[];
+  num_cameras: number;
+  episode_frames: number;
+  state_dim: number;
+  action_dim: number;
+  task: string | null;
+}
+
+export interface EpisodeCreateRequest {
   // HuggingFace v3 dataset the real footage is drawn from (a curated preset or a
-  // custom owner/name). Omit to use the server default.
+  // custom owner/name). Omit to use the server default. The recorded shape
+  // (cameras/fps/resolution/dims/length) is derived from this source, not picked.
   source_repo_id?: string;
+  task: string;
+  // Optional cap on frames recorded; omit for the full first source episode
+  // (still bounded by the server's MAX_EPISODE_FRAMES ceiling).
+  max_frames?: number;
 }
 
 export interface EpisodeUpdateRequest {
@@ -109,17 +131,11 @@ export interface EpisodeCreateResult {
 
 export interface EpisodeFormOptions {
   tasks: string[];
-  num_cameras: number[];
-  num_frames: number[];
-  fps: number[];
-  resolutions: number[];
   sources: string[];
   default_task: string;
-  default_num_cameras: number;
-  default_num_frames: number;
-  default_fps: number;
-  default_resolution: number;
   default_source: string;
+  // Server ceiling on frames per ingest; the form bounds its optional cap to it.
+  max_frames: number;
 }
 
 export interface WorkerStreamStats {

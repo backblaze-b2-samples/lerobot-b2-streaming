@@ -97,7 +97,7 @@ services/api/
       dataset_stats.py     Dashboard aggregations
       files.py / upload.py / metadata.py  retained file surface
     runtime/
-      episodes.py          Episode CRUD + relabel + form options + dataset stats
+      episodes.py          Episode CRUD + relabel + form options + source inspect + dataset stats
       streaming.py         POST /stream
       files.py / upload.py / health.py / metrics.py  retained
   tests/                   pytest (structural + streaming contract + file tests)
@@ -125,13 +125,23 @@ was designed for:
 
 ## Other data flows
 
-- **Ingest**: Browser → `POST /episodes` → service builds a v3 episode locally
-  from real teleoperation footage (`repo/hf_source.py` lazily pulls a couple of
-  episodes of `lerobot/svla_so101_pickplace` and caches them; device auto
-  CUDA→MPS→CPU) → uploads the tree to the episode's B2 prefix. If the Hub is
-  unreachable the build falls back to procedural frames (logged) so the live
-  demo never crashes; `robot_type` records which source was used
-  (`so100_follower` for real, `synthetic` for the fallback).
+- **Inspect source** (preview/validate): Browser → `GET /episodes/source-info?repo_id=…`
+  → `repo/hf_source.inspect_source` loads (and caches) the source and reports its
+  **real shape** — cameras + native resolution, fps, state/action dims, episode
+  length, robot_type — or a 400 if it can't load. The create form previews this
+  and blocks recording until it succeeds.
+- **Ingest**: Browser → `POST /episodes` (`source_repo_id`, `task`, optional
+  `max_frames`) → service builds a v3 episode locally that **mirrors the source's
+  real shape** rather than imposing one (`repo/hf_source.py` lazily pulls a couple
+  of episodes of the chosen dataset — default `lerobot/svla_so101_pickplace` —
+  and caches them per `repo_id`; device auto CUDA→MPS→CPU) → uploads the tree to
+  the episode's B2 prefix. For the **default** source, if the Hub is unreachable
+  the build falls back to fixed-shape procedural frames (logged) so the live demo
+  never crashes; a **user-chosen** source that can't load fails loud with a 400.
+  `robot_type` records which source was used (the source's real type, or
+  `synthetic` for the fallback). The recorded v3 features therefore carry the
+  source's **native (non-square) per-camera resolution** and its real state/action
+  dimensionality — not a forced 256² / 6-DoF shape.
 - **Index/list**: Browser → `GET /episodes` → reads `meta/*` for each episode.
 - **Read detail**: `GET /episodes/{i}` + `GET /episodes/{i}/video?camera=…` (presigned MP4).
 - **Edit (relabel)**: `PATCH /episodes/{i}` → rewrites the task in the v3 meta on B2.

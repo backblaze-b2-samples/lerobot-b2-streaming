@@ -5,6 +5,8 @@ from app.types.episodes import (
     EpisodeCreateResult,
     EpisodeFormOptions,
     EpisodeUpdateRequest,
+    SourceCamera,
+    SourceInfo,
 )
 from app.types.files import FileMetadata, FileMetadataDetail
 from app.types.stats import DailyUploadCount, UploadStats
@@ -30,6 +32,8 @@ __all__ = [
     "FileMetadata",
     "FileMetadataDetail",
     "FileUploadResponse",
+    "SourceCamera",
+    "SourceInfo",
     "StreamRunRequest",
     "StreamRunStats",
     "UploadStats",

@@ -98,7 +98,7 @@ export function EpisodeDetail({ index }: { index: number }) {
             <Meta label="Frames" value={ep.num_frames} />
             <Meta label="FPS" value={ep.fps} />
             <Meta label="Cameras" value={ep.num_cameras} />
-            <Meta label="Resolution" value={`${ep.resolution}×${ep.resolution}`} />
+            <Meta label="Resolution" value={`${ep.frame_width}×${ep.frame_height}`} />
             <Meta label="Frame range" value={`${ep.dataset_from_index}–${ep.dataset_to_index}`} />
             <Meta label="Size on B2" value={ep.size_human} />
             <Meta label="Objects" value={ep.videos.length + 3} />

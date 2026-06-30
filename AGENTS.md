@@ -9,9 +9,13 @@ robot camera footage** pulled and cached on demand (per repo_id) by
 form** — a curated list of vetted public v3 datasets (`PRESET_SOURCES` in
 `types/episodes.py`) plus a "Custom repo…" free-text option for any other public
 HuggingFace `owner/name`; the default is `lerobot/svla_so101_pickplace` (a real
-SO-101 arm). Only the chosen source's first one or two episodes are pulled.
-Episodes are persisted to a Backblaze B2 bucket and streamed back chunk-by-chunk
-over the S3 API. A procedural-gradient frame generator survives only as a
+SO-101 arm). The recording **mirrors the source's real shape** — every camera at
+its native (non-square) resolution, the source's fps, its real state/action dims,
+and the source episode's own length — rather than imposing synthetic
+cameras/frames/fps/resolution knobs; `GET /episodes/source-info` previews and
+validates that shape (fail-loud) before recording. Only the chosen source's first
+one or two episodes are pulled. Episodes are persisted to a Backblaze B2 bucket
+and streamed back chunk-by-chunk over the S3 API. A procedural-gradient frame generator survives only as a
 clearly-logged offline fallback **for the default source** (a user-chosen source
 that can't load fails loudly with a 400 instead); it is never the seeded demo
 data.

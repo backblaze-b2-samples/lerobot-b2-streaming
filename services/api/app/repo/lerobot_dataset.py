@@ -19,11 +19,22 @@ step).
 
 import logging
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
+from typing import NamedTuple
 
 from app.repo import hf_source
+from app.types.episodes import MAX_EPISODE_FRAMES
 
 logger = logging.getLogger(__name__)
+
+# Shape of the synthetic offline fallback (default source only — it can't inspect
+# a source it failed to load). Clearly logged; never seeded as demo data.
+_FALLBACK_CAMERAS = 2
+_FALLBACK_RESOLUTION = 256
+_FALLBACK_FPS = 30
+_FALLBACK_FRAMES = 60
+_FALLBACK_DOF = 6
 
 
 def select_device() -> str:
@@ -43,38 +54,42 @@ def select_device() -> str:
     return "cpu"
 
 
-def _features(num_cameras: int, resolution: int) -> dict:
-    """v3 feature schema: per-camera video + a 6-DoF state/action vector."""
+def _dof_names(dim: int) -> list[str]:
+    """v3 requires one name per vector element. 6-DoF gets the readable pose
+    names; any other width (e.g. a 14-DoF bimanual arm) gets generic motor names."""
+    if dim == 6:
+        return ["x", "y", "z", "roll", "pitch", "yaw"]
+    return [f"motor_{i}" for i in range(dim)]
+
+
+def _features(cameras: list[dict], state_dim: int, action_dim: int) -> dict:
+    """v3 feature schema derived from the source: per-camera video at the source's
+    native (non-square) size + state/action vectors at the source's real dims."""
     feats: dict = {
         "observation.state": {
             "dtype": "float32",
-            "shape": (6,),
-            "names": ["x", "y", "z", "roll", "pitch", "yaw"],
+            "shape": (state_dim,),
+            "names": _dof_names(state_dim),
         },
         "action": {
             "dtype": "float32",
-            "shape": (6,),
-            "names": ["x", "y", "z", "roll", "pitch", "yaw"],
+            "shape": (action_dim,),
+            "names": _dof_names(action_dim),
         },
     }
-    for cam in range(num_cameras):
-        feats[f"observation.images.cam_{cam}"] = {
+    for i, cam in enumerate(cameras):
+        feats[f"observation.images.cam_{i}"] = {
             "dtype": "video",
-            "shape": (resolution, resolution, 3),
+            "shape": (cam["height"], cam["width"], 3),
             "names": ["height", "width", "channels"],
         }
     return feats
 
 
-def camera_keys(num_cameras: int) -> list[str]:
-    return [f"observation.images.cam_{c}" for c in range(num_cameras)]
-
-
 def _synth_frame(num_cameras: int, resolution: int, t: int, total: int, device: str):
-    """Procedurally generate one frame: a moving gradient per camera + a
-    smooth state/action vector. Deterministic-ish per timestep so the demo
-    video has visible motion. Tensors are created on the detected device,
-    then moved to CPU/numpy for LeRobot (which stores numpy)."""
+    """Procedurally generate one frame: a moving gradient per camera + a smooth
+    6-DoF state/action vector. Offline fallback only; tensors are built on the
+    detected device, then moved to CPU/numpy for LeRobot (which stores numpy)."""
     import numpy as np
     import torch
 
@@ -113,27 +128,45 @@ def _synth_frame(num_cameras: int, resolution: int, t: int, total: int, device: 
     return frame
 
 
+class _BuildSpec(NamedTuple):
+    """Everything `build_episode` needs, derived from the source so the v3
+    features and the per-frame data always agree."""
+
+    frame_fn: Callable[[int, int], dict]
+    robot_type: str
+    source_label: str
+    cameras: list[dict]  # [{height, width}] in order
+    fps: int
+    state_dim: int
+    action_dim: int
+    num_frames: int
+
+
+def _bounded(available: int, max_frames: int | None) -> int:
+    """Frames to record: the source episode length, lowered by an optional
+    `max_frames` and always clamped to the MAX_EPISODE_FRAMES safety ceiling."""
+    cap = MAX_EPISODE_FRAMES if max_frames is None else min(max_frames, MAX_EPISODE_FRAMES)
+    return max(1, min(available, cap))
+
+
 def _resolve_frame_source(
-    num_cameras: int,
-    resolution: int,
-    device: str,
-    source_episode: int,
     source_repo_id: str = hf_source.SOURCE_REPO_ID,
     allow_synth_fallback: bool = True,
-):
-    """Return (frame_fn, robot_type, source_label).
+    source_episode: int = 0,
+    device: str = "cpu",
+    max_frames: int | None = None,
+) -> _BuildSpec:
+    """Resolve the footage source and the exact shape to record.
 
-    `frame_fn(t, total)` yields one frame dict. PRIMARY: real footage from
-    `hf_source` (the `source_repo_id` dataset). FALLBACK (clearly logged): the
-    procedural `_synth_frame` gradient, used ONLY when `allow_synth_fallback` and
-    the Hub/source can't load, so the live interactive demo never hard-crashes
-    offline. When the source was explicitly chosen by the user
-    (`allow_synth_fallback=False`) a load failure is re-raised so the caller can
-    surface it instead of silently substituting synthetic frames. Seeded demo
-    data is always real — never this fallback.
+    PRIMARY: real footage from `hf_source`, mirroring the source's cameras, fps,
+    native resolution, state/action dims, and episode length. FALLBACK (logged,
+    fixed shape): the procedural `_synth_frame` gradient, used ONLY when
+    `allow_synth_fallback` and the source can't load, so the live demo never
+    crashes offline. A user-chosen source (`allow_synth_fallback=False`) re-raises
+    instead of silently substituting synthetic frames.
     """
     try:
-        hf_source.ensure_loaded(source_repo_id)
+        info = hf_source.inspect_source(source_repo_id, source_episode)
     except hf_source.RealSourceUnavailable as e:
         if not allow_synth_fallback:
             raise
@@ -144,68 +177,76 @@ def _resolve_frame_source(
         )
 
         def synth(t: int, total: int):
-            return _synth_frame(num_cameras, resolution, t, total, device)
+            return _synth_frame(_FALLBACK_CAMERAS, _FALLBACK_RESOLUTION, t, total, device)
 
-        return synth, "synthetic", "synthetic-fallback"
+        cams = [
+            {"height": _FALLBACK_RESOLUTION, "width": _FALLBACK_RESOLUTION}
+        ] * _FALLBACK_CAMERAS
+        return _BuildSpec(
+            synth, "synthetic", "synthetic-fallback", cams, _FALLBACK_FPS,
+            _FALLBACK_DOF, _FALLBACK_DOF, _bounded(_FALLBACK_FRAMES, max_frames),
+        )
 
     def real(t: int, total: int):
         return hf_source.real_frame(
-            num_cameras, resolution, t, total, device,
-            source_episode=source_episode, repo_id=source_repo_id,
+            t, total, source_episode=source_episode, repo_id=source_repo_id,
         )
 
-    return real, hf_source.source_robot_type(source_repo_id), source_repo_id
+    return _BuildSpec(
+        real, info["robot_type"], source_repo_id,
+        [{"height": c["height"], "width": c["width"]} for c in info["cameras"]],
+        info["fps"], info["state_dim"], info["action_dim"],
+        _bounded(info["episode_frames"], max_frames),
+    )
 
 
 def build_episode(
     root: str,
     repo_id: str,
     task: str,
-    num_cameras: int,
-    num_frames: int,
-    fps: int,
-    resolution: int,
     device: str,
     source_episode: int = 0,
     source_repo_id: str = hf_source.SOURCE_REPO_ID,
     allow_synth_fallback: bool = True,
+    max_frames: int | None = None,
 ) -> str:
     """Build a one-episode v3 dataset on disk at `root` using the real API.
 
-    Camera frames come from real teleoperation footage (`hf_source`) drawn from
-    the `source_repo_id` dataset; a logged synthetic fallback is used only if the
-    Hub is unreachable AND `allow_synth_fallback` is set (the default source). For
-    a user-chosen source, `allow_synth_fallback=False` re-raises
-    `RealSourceUnavailable` instead. Returns the `robot_type` actually written
-    into the v3 metadata (the source's real robot_type, or "synthetic" for the
-    offline fallback) so the caller can tell real demo data apart from fallback.
+    The recorded shape (cameras, fps, native resolution, state/action dims,
+    length) is **derived from the source** via `_resolve_frame_source`, not
+    imposed — so an external user's data is reproduced faithfully. `max_frames`
+    optionally caps the length. Returns the written `robot_type` (the source's
+    real type, or "synthetic" for the offline fallback).
     """
     from lerobot.datasets.lerobot_dataset import LeRobotDataset
 
-    frame_fn, robot_type, source_label = _resolve_frame_source(
-        num_cameras, resolution, device, source_episode,
-        source_repo_id=source_repo_id, allow_synth_fallback=allow_synth_fallback,
+    spec = _resolve_frame_source(
+        source_repo_id=source_repo_id,
+        allow_synth_fallback=allow_synth_fallback,
+        source_episode=source_episode,
+        device=device,
+        max_frames=max_frames,
     )
 
     ds = LeRobotDataset.create(
         repo_id=repo_id,
-        fps=fps,
-        features=_features(num_cameras, resolution),
+        fps=spec.fps,
+        features=_features(spec.cameras, spec.state_dim, spec.action_dim),
         root=root,
-        robot_type=robot_type,
+        robot_type=spec.robot_type,
         use_videos=True,
     )
-    for t in range(num_frames):
-        frame = frame_fn(t, num_frames)
+    for t in range(spec.num_frames):
+        frame = spec.frame_fn(t, spec.num_frames)
         frame["task"] = task
         ds.add_frame(frame)
     ds.save_episode()
     ds.finalize()
     logger.info(
-        "Built v3 episode: frames=%d cameras=%d source=%s robot_type=%s",
-        num_frames, num_cameras, source_label, robot_type,
+        "Built v3 episode: frames=%d cameras=%d fps=%d source=%s robot_type=%s",
+        spec.num_frames, len(spec.cameras), spec.fps, spec.source_label, spec.robot_type,
     )
-    return robot_type
+    return spec.robot_type
 
 
 def make_temp_root() -> str:

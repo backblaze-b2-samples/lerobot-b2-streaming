@@ -42,11 +42,13 @@ def build_episode(
     total_bytes = sum(o["size"] for o in objs)
     row = meta_rows[0] if meta_rows else {}
     cams = [k for k in info.get("features", {}) if str(k).startswith("observation.images.")]
-    res = 256
+    # Native (non-square) frame size of the first camera — v3 video shape is
+    # (height, width, channels).
+    frame_height, frame_width = 0, 0
     for k in cams:
         shp = info["features"][k].get("shape") or []
-        if shp:
-            res = int(shp[0])
+        if len(shp) >= 2:
+            frame_height, frame_width = int(shp[0]), int(shp[1])
             break
 
     videos: list[EpisodeCameraVideo] = []
@@ -69,7 +71,8 @@ def build_episode(
         fps=int(info.get("fps", 0)),
         num_cameras=len(cams),
         cameras=[c.replace("observation.images.", "") for c in cams],
-        resolution=res,
+        frame_height=frame_height,
+        frame_width=frame_width,
         dataset_from_index=int(row.get("dataset_from_index", 0) or 0),
         dataset_to_index=int(row.get("dataset_to_index", 0) or 0),
         size_bytes=total_bytes,

@@ -9,6 +9,7 @@ from app.service.episodes import (
     create_episode,
     delete_episode,
     get_episode,
+    inspect_source,
     list_episodes,
     relabel_episode,
 )
@@ -20,12 +21,10 @@ from app.types import (
     EpisodeCreateResult,
     EpisodeFormOptions,
     EpisodeUpdateRequest,
+    SourceInfo,
 )
 from app.types.episodes import (
-    ALLOWED_FPS,
-    ALLOWED_NUM_CAMERAS,
-    ALLOWED_NUM_FRAMES,
-    ALLOWED_RESOLUTIONS,
+    MAX_EPISODE_FRAMES,
     PRESET_SOURCES,
     PRESET_TASKS,
 )
@@ -41,21 +40,27 @@ def _handle(e: EpisodeError):
 
 @router.get("/episodes/options", response_model=EpisodeFormOptions)
 async def episode_options():
-    """Finite option sets + safe defaults the create/edit forms render."""
+    """Task labels, the curated source shortlist, and the frames ceiling the
+    create form renders. The recording shape itself is derived from the chosen
+    source (see GET /episodes/source-info), not picked from knobs."""
     return EpisodeFormOptions(
         tasks=PRESET_TASKS,
-        num_cameras=ALLOWED_NUM_CAMERAS,
-        num_frames=ALLOWED_NUM_FRAMES,
-        fps=ALLOWED_FPS,
-        resolutions=ALLOWED_RESOLUTIONS,
         sources=PRESET_SOURCES,
         default_task=PRESET_TASKS[0],
-        default_num_cameras=2,
-        default_num_frames=60,
-        default_fps=30,
-        default_resolution=256,
         default_source=PRESET_SOURCES[0],
+        max_frames=MAX_EPISODE_FRAMES,
     )
+
+
+@router.get("/episodes/source-info", response_model=SourceInfo)
+async def episode_source_info(repo_id: str | None = None):
+    """Preview the real shape (cameras, fps, native resolution, state/action dims,
+    episode length) an ingest from `repo_id` will reproduce — or a 400 if the
+    source can't be loaded. Omit `repo_id` for the server default source."""
+    try:
+        return inspect_source(repo_id)
+    except EpisodeError as e:
+        _handle(e)
 
 
 @router.get("/episodes/stats", response_model=DatasetStats)

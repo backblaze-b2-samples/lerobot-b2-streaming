@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { AlertTriangle, Camera, Clapperboard, Gauge, Loader2, Sliders } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,12 +27,10 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { useCreateEpisode } from "@/lib/queries";
+import { useCreateEpisode, useSourceInfo } from "@/lib/queries";
 import { ApiError } from "@/lib/api-client";
 
-// Finite option sets are rendered as selectors (never free text). Safe
-// defaults are surfaced as guidance only (FormDescription), not an autofill
-// button — per the create-form UX conventions.
+// Task labels are an annotation the user assigns; rendered as a selector.
 const PRESET_TASKS = [
   "Pick up the cube",
   "Stack blocks",
@@ -49,16 +49,16 @@ const SOURCE_PRESETS = [
 ] as const;
 const CUSTOM_SOURCE = "__custom__";
 const REPO_ID_RE = /^[A-Za-z0-9][\w.-]*\/[\w.-]+$/;
+// Mirrors MAX_EPISODE_FRAMES in the backend's types/episodes.py.
+const MAX_FRAMES_CEILING = 600;
 
 const schema = z
   .object({
     task: z.enum(PRESET_TASKS),
-    num_cameras: z.coerce.number().int().refine((v) => [1, 2, 3].includes(v)),
-    num_frames: z.coerce.number().int().refine((v) => [30, 60, 120].includes(v)),
-    fps: z.coerce.number().int().refine((v) => [10, 30].includes(v)),
-    resolution: z.coerce.number().int().refine((v) => [128, 256].includes(v)),
     source: z.string(),
     custom_repo_id: z.string().optional(),
+    // Optional cap; kept as the raw input string and validated below.
+    max_frames: z.string().optional(),
   })
   .superRefine((val, ctx) => {
     if (val.source === CUSTOM_SOURCE && !REPO_ID_RE.test((val.custom_repo_id ?? "").trim())) {
@@ -68,48 +68,57 @@ const schema = z
         message: "Enter a HuggingFace repo id like owner/name",
       });
     }
+    const mf = (val.max_frames ?? "").trim();
+    if (mf !== "") {
+      const n = Number(mf);
+      if (!Number.isInteger(n) || n < 1 || n > MAX_FRAMES_CEILING) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["max_frames"],
+          message: `Enter a whole number from 1 to ${MAX_FRAMES_CEILING}, or leave blank`,
+        });
+      }
+    }
   });
 
 type FormValues = z.infer<typeof schema>;
 
 const DEFAULTS: FormValues = {
   task: "Pick up the cube",
-  num_cameras: 2,
-  num_frames: 60,
-  fps: 30,
-  resolution: 256,
   source: SOURCE_PRESETS[0],
   custom_repo_id: "",
+  max_frames: "",
 };
 
-function NumberSelect({
+// Debounce a value: setState only ever runs inside the timeout callback (never
+// synchronously in the effect body), so typing a custom repo doesn't fire a
+// request per keystroke.
+function useDebounced<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
+}
+
+function PreviewRow({
+  icon: Icon,
+  label,
   value,
-  onChange,
-  options,
-  format,
-  width = "w-full sm:w-40",
 }: {
-  value: number;
-  onChange: (v: number) => void;
-  options: number[];
-  format?: (n: number) => string;
-  width?: string;
+  icon: typeof Camera;
+  label: string;
+  value: string;
 }) {
   return (
-    <Select value={String(value)} onValueChange={(v) => onChange(Number(v))}>
-      <FormControl>
-        <SelectTrigger className={width}>
-          <SelectValue />
-        </SelectTrigger>
-      </FormControl>
-      <SelectContent>
-        {options.map((o) => (
-          <SelectItem key={o} value={String(o)}>
-            {format ? format(o) : o}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <div className="flex items-center gap-2">
+      <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </span>
+      <span className="text-sm font-medium tabular-nums ml-auto text-right">{value}</span>
+    </div>
   );
 }
 
@@ -120,21 +129,35 @@ export function EpisodeCreateForm() {
     resolver: zodResolver(schema),
     defaultValues: DEFAULTS,
   });
-  // Subscribe to the source field so the custom-repo input shows/hides reactively
-  // (useWatch is the memoization-safe way to read a field during render).
   const sourceValue = useWatch({ control: form.control, name: "source" });
+  const customRepo = useWatch({ control: form.control, name: "custom_repo_id" });
+
+  // Resolve which repo to preview. For a custom repo we debounce + only probe
+  // once it's a well-formed owner/name, so we don't fire a request per keystroke.
+  const effectiveRepo =
+    sourceValue === CUSTOM_SOURCE ? (customRepo ?? "").trim() : sourceValue;
+  const debouncedRepo = useDebounced(
+    effectiveRepo,
+    sourceValue === CUSTOM_SOURCE ? 500 : 0,
+  );
+  const repoValid =
+    debouncedRepo !== "" &&
+    (sourceValue !== CUSTOM_SOURCE || REPO_ID_RE.test(debouncedRepo));
+  const previewRepo = repoValid ? debouncedRepo : "";
+
+  const info = useSourceInfo(previewRepo, !!previewRepo);
+  // Can only record once we've confirmed the source loads (and shown its shape).
+  const canSubmit = !!previewRepo && info.isSuccess && !create.isPending;
 
   const onSubmit = async (values: FormValues) => {
     const source_repo_id =
       values.source === CUSTOM_SOURCE ? (values.custom_repo_id ?? "").trim() : values.source;
+    const mf = (values.max_frames ?? "").trim();
     try {
       const result = await create.mutateAsync({
-        task: values.task,
-        num_cameras: values.num_cameras,
-        num_frames: values.num_frames,
-        fps: values.fps,
-        resolution: values.resolution,
         source_repo_id,
+        task: values.task,
+        max_frames: mf === "" ? undefined : Number(mf),
       });
       toast.success(`Episode ep_${String(result.episode.episode_index).padStart(6, "0")} recorded`, {
         description: `${result.bytes_uploaded_human} uploaded to B2 · ${result.object_count} objects · device ${result.device}`,
@@ -151,7 +174,7 @@ export function EpisodeCreateForm() {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <Card>
           <CardHeader className="border-b border-border py-4 px-5">
-            <CardTitle className="card-title">Recording parameters</CardTitle>
+            <CardTitle className="card-title">Source dataset</CardTitle>
           </CardHeader>
           <CardContent className="p-5 space-y-6">
             <FormField
@@ -176,8 +199,9 @@ export function EpisodeCreateForm() {
                     </SelectContent>
                   </Select>
                   <FormDescription>
-                    The public LeRobot v3 dataset the real camera footage is drawn
-                    from. Pick &ldquo;Custom repo…&rdquo; to use your own.
+                    The recording reproduces this dataset&apos;s real cameras, fps,
+                    resolution, and length — nothing is imposed. Pick &ldquo;Custom
+                    repo…&rdquo; to ingest your own public LeRobot v3 dataset.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -209,6 +233,64 @@ export function EpisodeCreateForm() {
               />
             )}
 
+            {/* What will be recorded — derived from the source, fail-loud here. */}
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                What will be recorded
+              </div>
+              {!previewRepo ? (
+                <p className="text-sm text-muted-foreground">
+                  Enter a public LeRobot v3 repo to preview its real shape.
+                </p>
+              ) : info.isLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading {previewRepo}…
+                </div>
+              ) : info.isError ? (
+                <div className="flex items-start gap-2 text-sm text-destructive">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>
+                    {info.error instanceof ApiError
+                      ? info.error.message
+                      : "Couldn't load this dataset."}
+                  </span>
+                </div>
+              ) : info.data ? (
+                <div className="grid gap-2.5 sm:grid-cols-2">
+                  <PreviewRow
+                    icon={Camera}
+                    label="Cameras"
+                    value={`${info.data.num_cameras} · ${info.data.cameras
+                      .map((c) => `${c.width}×${c.height}`)
+                      .join(", ")}`}
+                  />
+                  <PreviewRow icon={Gauge} label="FPS" value={String(info.data.fps)} />
+                  <PreviewRow
+                    icon={Clapperboard}
+                    label="Frames"
+                    value={`${info.data.episode_frames} available`}
+                  />
+                  <PreviewRow
+                    icon={Sliders}
+                    label="State · action"
+                    value={`${info.data.state_dim}-DoF · ${info.data.action_dim}-DoF`}
+                  />
+                  <PreviewRow icon={Sliders} label="Robot" value={info.data.robot_type} />
+                  {info.data.task && (
+                    <PreviewRow icon={Clapperboard} label="Source task" value={info.data.task} />
+                  )}
+                </div>
+              ) : null}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="border-b border-border py-4 px-5">
+            <CardTitle className="card-title">Recording</CardTitle>
+          </CardHeader>
+          <CardContent className="p-5 space-y-6">
             <FormField
               control={form.control}
               name="task"
@@ -230,7 +312,8 @@ export function EpisodeCreateForm() {
                     </SelectContent>
                   </Select>
                   <FormDescription>
-                    The natural-language task label stored in the v3 metadata.
+                    The natural-language task label stored in the v3 metadata for
+                    this recording.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -239,67 +322,26 @@ export function EpisodeCreateForm() {
 
             <FormField
               control={form.control}
-              name="num_cameras"
+              name="max_frames"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Cameras</FormLabel>
-                  <NumberSelect
-                    value={field.value}
-                    onChange={field.onChange}
-                    options={[1, 2, 3]}
-                  />
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="num_frames"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Frames</FormLabel>
-                  <NumberSelect
-                    value={field.value}
-                    onChange={field.onChange}
-                    options={[30, 60, 120]}
-                  />
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="fps"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>FPS</FormLabel>
-                  <NumberSelect
-                    value={field.value}
-                    onChange={field.onChange}
-                    options={[10, 30]}
-                  />
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="resolution"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Resolution</FormLabel>
-                  <NumberSelect
-                    value={field.value}
-                    onChange={field.onChange}
-                    options={[128, 256]}
-                    format={(n) => `${n}×${n}`}
-                  />
+                  <FormLabel>Frames to record (optional)</FormLabel>
+                  <FormControl>
+                    <Input
+                      inputMode="numeric"
+                      placeholder={
+                        info.data
+                          ? `Full episode (${info.data.episode_frames})`
+                          : "Full episode"
+                      }
+                      className="w-full sm:w-72"
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                    />
+                  </FormControl>
                   <FormDescription>
-                    Defaults (2 cameras · 60 frames · 30 fps · 256×256) record a
-                    small episode in a few seconds — good for a first run.
+                    Leave blank to record the full first source episode (capped at{" "}
+                    {MAX_FRAMES_CEILING}). Lower it for a quick demo clip.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -317,7 +359,7 @@ export function EpisodeCreateForm() {
           >
             Reset
           </Button>
-          <Button type="submit" disabled={create.isPending}>
+          <Button type="submit" disabled={!canSubmit}>
             {create.isPending ? "Recording & uploading…" : "Record episode"}
           </Button>
         </div>

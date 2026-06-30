@@ -14,3 +14,6 @@ Known tech debt items. Agents update this when they discover or create tech debt
 | `humanizeBytes` duplicated in TypeScript | DRY violation | Extract to `lib/utils.ts` | Low | Open |
 | `formatDate` duplicated in TypeScript | DRY violation | Extract to `lib/utils.ts` | Low | Open |
 | No test harness for feature specs | No automated verification | Add pytest fixtures + test files per feature | Medium | Resolved (partial — tests added for upload, files, activity, errors) |
+| Private/gated HF source repos can't be ingested | Bring-your-own-data limited to public datasets | Add optional `HF_TOKEN` env var, pass to `LeRobotDataset` load in `repo/hf_source.py` | Medium | Open |
+| `Episode` summarizes a multi-camera dataset's resolution by the first camera | A source whose cameras differ in size shows only the first in the detail card (all are recorded faithfully) | Report per-camera sizes in the `Episode` model + detail UI | Low | Open |
+| Curated `PRESET_SOURCES` / `PRESET_TASKS` / frames ceiling duplicated front+back | Drift risk | Have the form read `/episodes/options` instead of hardcoding (matches existing `PRESET_TASKS` pattern) | Low | Open |

@@ -14,6 +14,7 @@ import {
   getFileStats,
   getIngestActivity,
   getPreviewUrl,
+  getSourceInfo,
   getUploadActivity,
   relabelEpisode,
   runStream,
@@ -37,6 +38,7 @@ export const qk = {
   episodes: (task?: string) => [...qk.all, "episodes", task ?? ""] as const,
   episode: (index: number) => [...qk.all, "episode", index] as const,
   episodeOptions: () => [...qk.all, "episode-options"] as const,
+  sourceInfo: (repoId: string) => [...qk.all, "source-info", repoId] as const,
   datasetStats: () => [...qk.all, "dataset-stats"] as const,
   ingestActivity: (days: number) =>
     [...qk.all, "ingest-activity", days] as const,
@@ -109,6 +111,19 @@ export function useEpisodeOptions() {
     queryKey: qk.episodeOptions(),
     queryFn: getEpisodeOptions,
     staleTime: Infinity,
+  });
+}
+
+// Preview/validate a source dataset's real shape. Only fetched once `enabled`
+// (a concrete repo id is chosen). `retry: false` so a bad/gated repo's 400
+// surfaces immediately in the form instead of being retried.
+export function useSourceInfo(repoId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: qk.sourceInfo(repoId ?? ""),
+    queryFn: () => getSourceInfo(repoId),
+    enabled: enabled && !!repoId,
+    staleTime: Infinity,
+    retry: false,
   });
 }
 

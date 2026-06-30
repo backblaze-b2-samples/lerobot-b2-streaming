@@ -34,11 +34,11 @@ Instead this sample provides the **B2/S3 streaming bridge** the v3 format was ex
 1. reads the small v3 metadata (`meta/info.json`, `meta/episodes/*.parquet`) from B2, then
 2. issues S3 **ranged GETs** (`get_object(Range=…)`) to pull only the Parquet row-groups and the specific video byte-ranges for the requested episodes — never the whole dataset.
 
-The measurable, verifiable invariant: **bytes fetched from B2 ≪ total dataset size.** In a default run (2 cameras, 60 frames) the streamer decodes every frame while fetching roughly a third of the episode's bytes. This bridge is essentially what LeRobot#764 is asking for.
+The measurable, verifiable invariant: **bytes fetched from B2 ≪ total dataset size.** In a typical run the streamer decodes every frame while fetching only a fraction of the episode's bytes. This bridge is essentially what LeRobot#764 is asking for.
 
 ## What you get
 
-- **Record an episode** with the genuine LeRobot v3 API (`LeRobotDataset.create() → add_frame → save_episode → finalize`) — real multi-camera robot footage from a **selectable** public v3 dataset (a curated list, or your own via "Custom repo…"; default `lerobot/svla_so101_pickplace`) + its 6-DoF state/action table, encoded to MP4 and uploaded to B2.
+- **Record an episode** with the genuine LeRobot v3 API (`LeRobotDataset.create() → add_frame → save_episode → finalize`) — real multi-camera robot footage from a **selectable** public v3 dataset (a curated list, or your own via "Custom repo…"; default `lerobot/svla_so101_pickplace`) + its real state/action table, encoded to MP4 and uploaded to B2. The recording **mirrors the source's real shape** (its cameras, fps, native resolution, state/action dims, and episode length) — you pick the source, not a synthetic frame count or resolution. The form previews exactly what will be recorded before you submit.
 - **Browse the dataset** in a sample-scoped `/episodes` explorer (filter by task) plus per-camera MP4 playback, state/action metadata, and B2 keys on each detail page.
 - **Stream from B2** at `/stream`: pick an episode or a task split, stream it chunk-by-chunk into a mini training loop, and watch bytes-fetched-via-Range vs total dataset size — with an N-worker concurrent mode for the shared-backend / fleet story.
 - **Full bucket explorer** (`/files`) and **upload** (`/upload`) retained from the starter kit, so the bucket stays fully inspectable.
@@ -99,7 +99,7 @@ Open `.env`, then in the [Backblaze B2 dashboard](https://secure.backblaze.com/b
 pnpm dev
 ```
 
-Frontend at `localhost:3000`, API at `localhost:8000`. Open **Episodes → Record episode**, accept the defaults (or pick a different **Source dataset** — a curated v3 dataset, or your own via "Custom repo…"), and a v3 episode built from real robot footage is uploaded to B2 in a few seconds (the first recording from a given source lazily downloads a couple of its episodes and caches them). Then open **Stream** to stream it back from B2 and watch the bytes-fetched-vs-total readout.
+Frontend at `localhost:3000`, API at `localhost:8000`. Open **Episodes → Record episode**, keep the default **Source dataset** (or pick another curated v3 dataset, or your own via "Custom repo…"). The form previews the source's real shape; once it loads, hit **Record** and a v3 episode built from real robot footage — mirroring that source's cameras/fps/resolution — is uploaded to B2 in a few seconds (the first recording from a given source lazily downloads a couple of its episodes and caches them). Then open **Stream** to stream it back from B2 and watch the bytes-fetched-vs-total readout.
 
 `pnpm dev` runs `pnpm doctor` first — a preflight check for Node/Python versions, the venv, and a valid `.env`.
 

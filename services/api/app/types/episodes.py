@@ -2,18 +2,14 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-# Finite option sets surfaced as selectors in the create/edit UI. Kept here so
-# the API can validate against the same lists the frontend renders.
+# Task labels surfaced as a selector in the create/edit UI. Kept here so the API
+# can validate against the same list the frontend renders.
 PRESET_TASKS = [
     "Pick up the cube",
     "Stack blocks",
     "Open the drawer",
     "Push the button",
 ]
-ALLOWED_NUM_CAMERAS = [1, 2, 3]
-ALLOWED_NUM_FRAMES = [30, 60, 120]
-ALLOWED_FPS = [10, 30]
-ALLOWED_RESOLUTIONS = [128, 256]
 
 # Curated, vetted-public **LeRobot v3** datasets offered in the source-dataset
 # dropdown. The first entry is the default. All confirmed codebase_version v3.0
@@ -27,6 +23,12 @@ PRESET_SOURCES = [
 ]
 # HuggingFace `owner/name` repo id (used to validate a custom source).
 SOURCE_REPO_ID_PATTERN = r"^[A-Za-z0-9][\w.-]*/[\w.-]+$"
+
+# Safety ceiling on how many frames a single ingest records, so a long source
+# episode still finishes "in a few seconds" and the uploaded tree stays bounded.
+# The recording otherwise mirrors the source (cameras/fps/resolution/length); the
+# only knob is an optional `max_frames` that can lower this further.
+MAX_EPISODE_FRAMES = 600
 
 
 class EpisodeCameraVideo(BaseModel):
@@ -47,7 +49,10 @@ class Episode(BaseModel):
     fps: int
     num_cameras: int
     cameras: list[str]
-    resolution: int
+    # Native frame size of the first camera (sources are not square - e.g.
+    # 480x640 - so height and width are reported separately, not as one int).
+    frame_height: int
+    frame_width: int
     # Frame offsets into the shared data shard (v3 byte/frame offsets).
     dataset_from_index: int
     dataset_to_index: int
@@ -58,17 +63,45 @@ class Episode(BaseModel):
     videos: list[EpisodeCameraVideo] = Field(default_factory=list)
 
 
-class EpisodeCreateRequest(BaseModel):
-    """Create form payload — record a real-footage episode and push it to B2."""
+class SourceCamera(BaseModel):
+    """One real camera stream in a source dataset (native, non-square size)."""
 
-    task: str
-    num_cameras: int = 2
-    num_frames: int = 60
-    fps: int = 30
-    resolution: int = 256
+    name: str
+    height: int
+    width: int
+
+
+class SourceInfo(BaseModel):
+    """The real shape of a source dataset, used to preview/validate an ingest
+    before it runs. The recording reproduces exactly these values."""
+
+    repo_id: str
+    robot_type: str
+    fps: int
+    cameras: list[SourceCamera]
+    num_cameras: int
+    # Frames in the first source episode — the full length that will be recorded
+    # unless `max_frames`/the ceiling lowers it.
+    episode_frames: int
+    state_dim: int
+    action_dim: int
+    task: str | None = None
+
+
+class EpisodeCreateRequest(BaseModel):
+    """Create form payload — record a real-footage episode and push it to B2.
+
+    The recorded shape (cameras, fps, resolution, state/action dims, length) is
+    derived from the source dataset itself; the only inputs are which source to
+    draw from, the task label, and an optional cap on frames."""
+
     # HuggingFace v3 dataset the real footage is drawn from. None → server
     # default (kept for API back-compat; the form always sends an explicit one).
     source_repo_id: str | None = None
+    task: str
+    # Optional cap on frames recorded; None → the full first source episode
+    # (still bounded by MAX_EPISODE_FRAMES).
+    max_frames: int | None = None
 
 
 class EpisodeUpdateRequest(BaseModel):
@@ -86,17 +119,12 @@ class EpisodeCreateResult(BaseModel):
 
 
 class EpisodeFormOptions(BaseModel):
-    """Finite option sets + safe defaults the create/edit forms render."""
+    """Option sets + safe defaults the create/edit forms render. The recording
+    shape is no longer a set of knobs — it comes from the chosen source — so this
+    is just the task labels, the curated source shortlist, and the frames ceiling."""
 
     tasks: list[str]
-    num_cameras: list[int]
-    num_frames: list[int]
-    fps: list[int]
-    resolutions: list[int]
     sources: list[str]
     default_task: str
-    default_num_cameras: int
-    default_num_frames: int
-    default_fps: int
-    default_resolution: int
     default_source: str
+    max_frames: int
