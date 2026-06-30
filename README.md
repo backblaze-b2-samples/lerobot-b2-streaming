@@ -3,11 +3,9 @@
 
 **Stream HuggingFace LeRobot v3 robot datasets straight from a Backblaze B2 bucket over the S3 API — train without downloading the whole dataset.**
 
-Use a single **[Backblaze B2](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-lerobot-b2-streaming)** bucket as the shared dataset backend for [HuggingFace LeRobot](https://github.com/huggingface/lerobot). Record teleoperation **episodes** (multi-camera MP4 + a Parquet state/action table, in the real **LeRobotDataset v3** layout) built from **real robot camera footage**, persist them to B2, index them by task label, and then **stream them back chunk-by-chunk from B2 over the S3 API** to feed training — with no per-researcher full-dataset download.
+Use a single **[Backblaze B2](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-lerobot-b2-streaming)** bucket as the shared dataset backend for [HuggingFace LeRobot](https://github.com/huggingface/lerobot). Record teleoperation **episodes** from real robot camera footage (multi-camera MP4 + a Parquet state/action table, in the real **LeRobotDataset v3** layout), persist them to B2, index them by task label, then **stream them back chunk-by-chunk over the S3 API** to feed training. The source dataset is selectable per recording (default `lerobot/svla_so101_pickplace`, a real SO-101 arm) — see [Quick Start](#quick-start).
 
-The camera frames are genuine teleoperation footage. The **source dataset is selectable in the record form** — a curated dropdown of vetted public LeRobot v3 datasets, plus a **"Custom repo…"** option to point ingest at *your own* public HuggingFace `owner/name`. The default is the small public **[`lerobot/svla_so101_pickplace`](https://huggingface.co/datasets/lerobot/svla_so101_pickplace)** dataset (a real SO-101 arm). Whichever source you pick, only its first one or two episodes are pulled and cached on demand via the LeRobot SDK's partial-download path — never the whole set. A custom source that can't load (private, gated, or not v3) reports a clear error rather than silently substituting frames. (A procedural-gradient generator remains only as a logged offline fallback **for the default source** so the interactive demo never crashes when the Hub is unreachable.)
-
-Built for ML / robotics engineers who already know LeRobot and want object storage instead of a local disk or the HuggingFace Hub. The entire ML workload runs **locally** (CPU by default, GPU auto-detected) — your only credentials are B2.
+Built for ML / robotics engineers doing imitation learning who already know LeRobot and want object storage instead of a local disk or the HuggingFace Hub. The whole ML workload runs **locally** (CPU by default, GPU auto-detected) — your only credentials are B2.
 
 ## What it looks like
 
@@ -29,21 +27,9 @@ Built for ML / robotics engineers who already know LeRobot and want object stora
 
 ## Does LeRobot stream from S3 / B2? (the honest framing — fills LeRobot#764)
 
-LeRobot's `StreamingLeRobotDataset` is **HuggingFace-Hub-only**. It takes a `repo_id` and streams from the Hub; it has **no** native support for S3, a custom endpoint, fsspec, or even an arbitrary local `root` — non-Hub roots are an open feature request, [huggingface/lerobot#764](https://github.com/huggingface/lerobot/issues/764). So "point `StreamingLeRobotDataset` at B2" is **not** something stock LeRobot can do, and this sample does **not** pretend otherwise.
+No. LeRobot's `StreamingLeRobotDataset` is **HuggingFace-Hub-only**: it takes a `repo_id` and streams from the Hub, with **no** native support for S3, a custom endpoint, fsspec, or even an arbitrary local `root`. Non-Hub roots are an open feature request, [huggingface/lerobot#764](https://github.com/huggingface/lerobot/issues/764). "Point `StreamingLeRobotDataset` at B2" is **not** something stock LeRobot can do, and this sample does **not** pretend otherwise.
 
-Instead this sample provides the **B2/S3 streaming bridge** the v3 format was explicitly designed for. The v3 layout records per-episode byte/frame offsets into shared shards, so the bridge:
-
-1. reads the small v3 metadata (`meta/info.json`, `meta/episodes/*.parquet`) from B2, then
-2. issues S3 **ranged GETs** (`get_object(Range=…)`) to pull only the Parquet row-groups and the specific video byte-ranges for the requested episodes — never the whole dataset.
-
-The measurable, verifiable invariant: **bytes fetched from B2 ≪ total dataset size.** In a typical run the streamer decodes every frame while fetching only a fraction of the episode's bytes. This bridge is essentially what LeRobot#764 is asking for.
-
-## What you get
-
-- **Record an episode** with the genuine LeRobot v3 API (`LeRobotDataset.create() → add_frame → save_episode → finalize`) — real multi-camera robot footage from a **selectable** public v3 dataset (a curated list, or your own via "Custom repo…"; default `lerobot/svla_so101_pickplace`) + its real state/action table, encoded to MP4 and uploaded to B2. The recording **mirrors the source's real shape** (its cameras, fps, native resolution, state/action dims, and episode length) — you pick the source, not a synthetic frame count or resolution. The form previews exactly what will be recorded before you submit.
-- **Browse the dataset** in a sample-scoped `/episodes` explorer (filter by task) plus per-camera MP4 playback, state/action metadata, and B2 keys on each detail page.
-- **Stream from B2** at `/stream`: pick an episode or a task split, stream it chunk-by-chunk into a mini training loop, and watch bytes-fetched-via-Range vs total dataset size — with an N-worker concurrent mode for the shared-backend / fleet story.
-- **Full bucket explorer** (`/files`) and **upload** (`/upload`) retained from the starter kit, so the bucket stays fully inspectable.
+Instead, this sample provides the **B2/S3 streaming bridge** the v3 format was designed for. The v3 layout records per-episode byte/frame offsets into shared shards, so the bridge reads the small v3 metadata (`meta/info.json`, `meta/episodes/*.parquet`) from B2 and then issues S3 **ranged GETs** (`get_object(Range=…)`) to pull only the Parquet row-groups and the specific video byte-ranges for the requested episodes. The verifiable invariant: **bytes fetched from B2 ≪ total dataset size** — the streamer decodes every frame while fetching only a fraction of the episode's bytes. This is essentially what LeRobot#764 is asking for.
 
 ## Architecture at a glance
 
@@ -101,19 +87,21 @@ Open `.env`, then in the [Backblaze B2 dashboard](https://secure.backblaze.com/b
 pnpm dev
 ```
 
-Frontend at `localhost:3000`, API at `localhost:8000`. Open **Episodes → Record episode**, keep the default **Source dataset** (or pick another curated v3 dataset, or your own via "Custom repo…"). The form previews the source's real shape; once it loads, hit **Record** and a v3 episode built from real robot footage — mirroring that source's cameras/fps/resolution — is uploaded to B2 in a few seconds (the first recording from a given source lazily downloads a couple of its episodes and caches them). Then open **Stream** to stream it back from B2 and watch the bytes-fetched-vs-total readout.
+Frontend at `localhost:3000`, API at `localhost:8000`. Open **Episodes → Record episode** and choose a **Source dataset**: keep the default `lerobot/svla_so101_pickplace`, pick another curated public v3 dataset, or point ingest at **your own** public HuggingFace `owner/name` via **"Custom repo…"**. Only the source's first one or two episodes are pulled and cached on demand (the LeRobot SDK's partial-download path) — never the whole set; a source that can't load (private, gated, or not v3) reports a clear error rather than substituting frames. The form previews the source's real shape; hit **Record** and a v3 episode built from real robot footage — mirroring that source's cameras/fps/resolution — uploads to B2 in a few seconds. Then open **Stream** to stream it back from B2 and watch the bytes-fetched-vs-total readout.
+
+> A procedural-gradient generator remains only as a logged offline fallback **for the default source**, so the interactive demo never crashes when the Hub is unreachable. It is never seeded as data.
 
 `pnpm dev` runs `pnpm doctor` first — a preflight check for Node/Python versions, the venv, and a valid `.env`.
 
-## Core Features
+## Features
 
-- [Episode ingest → B2](docs/features/episode-ingest.md) — build a v3 episode from real robot footage and upload it to B2
-- [Dataset index & query](docs/features/dataset-index-query.md) — list/filter episodes by task from v3 metadata on B2
-- [B2 S3 chunk-by-chunk streaming](docs/features/b2-streaming.md) — the marquee ranged-GET bridge (fills LeRobot#764)
-- [Episode library explorer](docs/features/episode-library.md) — the sample-scoped `/episodes` browser
-- [Concurrent multi-worker streaming](docs/features/concurrent-streaming.md) — N workers, shared B2 backend
-- [File Upload](docs/features/file-upload.md) / [File Browser](docs/features/file-browser.md) — the retained full-bucket surface
-- [Dashboard](docs/features/dashboard.md) — episode/dataset metrics, ingest activity, recent episodes
+- [Episode ingest → B2](docs/features/episode-ingest.md) — build a v3 episode from real robot footage (LeRobot v3 API: `create() → add_frame → save_episode → finalize`) and upload it to B2, mirroring the source dataset's real cameras/fps/resolution/state-action shape.
+- [Dataset index & query](docs/features/dataset-index-query.md) — list/filter episodes by task from the v3 metadata on B2.
+- [Episode library explorer](docs/features/episode-library.md) — the sample-scoped `/episodes` browser, with per-camera MP4 playback, state/action metadata, B2 keys, and inline relabel/delete on each detail page.
+- [B2 S3 chunk-by-chunk streaming](docs/features/b2-streaming.md) — the marquee ranged-GET bridge at `/stream`: stream an episode or task split into a mini training loop and watch bytes-fetched-via-Range vs total dataset size (fills LeRobot#764).
+- [Concurrent multi-worker streaming](docs/features/concurrent-streaming.md) — N workers each taking a task split from the shared B2 backend, for the fleet story.
+- [Dashboard](docs/features/dashboard.md) — episode/dataset metrics, ingest activity, recent episodes.
+- [File Upload](docs/features/file-upload.md) / [File Browser](docs/features/file-browser.md) — the full-bucket surface retained from the starter kit, so the bucket stays fully inspectable.
 - [Design System](docs/design-system.md) — tokens, primitives, error/empty states. Live preview at `/design`.
 
 ## Tech Stack
