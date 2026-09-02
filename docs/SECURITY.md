@@ -1,4 +1,4 @@
-<!-- last_verified: 2026-04-22 -->
+<!-- last_verified: 2026-09-02 -->
 # Security
 
 Security principles and implementation for lerobot-b2-streaming.
@@ -43,6 +43,12 @@ Security principles and implementation for lerobot-b2-streaming.
 - All secrets loaded via environment variables (pydantic-settings)
 - Never committed to source control
 - `.env.example` documents required variables without values
+
+## Dependency Hygiene
+
+- Keep `pnpm audit` clean for the committed lockfile.
+- Use root `pnpm-workspace.yaml` overrides for vulnerable transitive tooling
+  dependencies when a direct package upgrade cannot resolve them safely.
 
 ## Agent Security Rules
 

@@ -16,7 +16,7 @@
     "test:e2e": "pnpm --filter @lerobot-b2-streaming/web exec playwright test"
   },
   "devDependencies": {
-    "concurrently": "^9.1.0"
+    "concurrently": "^10.0.5"
   },
   "engines": {
     "node": ">=22.13",
