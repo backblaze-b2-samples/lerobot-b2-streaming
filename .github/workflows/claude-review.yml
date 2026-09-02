@@ -1,13 +1,11 @@
 name: CI Checks
 
 on:
+  push:
+    branches: [main]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-
-# AI review (code review, B2 standards, security) is handled by a local agent
-# run against this repo. Once Claude Managed Agents is available, this will
-# move to a hosted agent triggered by the PR webhook — no credentials needed
-# in this workflow. See backblaze-labs/demand-side-ai#195.
+  workflow_dispatch:
 
 jobs:
   ci-checks:
@@ -15,6 +13,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -27,28 +38,17 @@ jobs:
           pip install uv
           uv pip install --system -r requirements.txt
 
-      - name: Run Python tests
-        working-directory: services/api
-        run: |
-          if [ -d "tests" ] && find tests \( -name "test_*.py" -o -name "*_test.py" \) | grep -q .; then
-            uv pip install --system pytest
-            python -m pytest tests/
-          else
-            echo "No tests found — skipping. See backblaze-labs/demand-side-ai#195 for test scaffolding work."
-          fi
+      - name: Lint frontend
+        run: pnpm lint
 
-      - name: Set up Node
-        if: ${{ hashFiles('apps/web/package.json') != '' }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
+      - name: Build frontend
+        run: pnpm build
 
-      - name: Install frontend dependencies
-        if: ${{ hashFiles('apps/web/package.json') != '' }}
-        working-directory: apps/web
-        run: npm install
+      - name: Lint API
+        run: pnpm lint:api
 
-      - name: Typecheck frontend
-        if: ${{ hashFiles('apps/web/package.json') != '' }}
-        working-directory: apps/web
-        run: npm run typecheck
+      - name: Test API
+        run: pnpm test:api
+
+      - name: Check API structure
+        run: pnpm check:structure

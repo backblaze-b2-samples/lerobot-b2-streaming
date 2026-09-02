@@ -1,4 +1,4 @@
-<!-- last_verified: 2026-06-30 -->
+<!-- last_verified: 2026-09-02 -->
 # LeRobot B2 Streaming
 
 **Stream HuggingFace LeRobot v3 robot datasets straight from a Backblaze B2 bucket over the S3 API — train without downloading the whole dataset.**

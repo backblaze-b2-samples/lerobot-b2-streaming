@@ -1,4 +1,4 @@
-<!-- last_verified: 2026-06-25 -->
+<!-- last_verified: 2026-09-02 -->
 # Dev Workflows
 
 Engineering workflows for this repo.
@@ -69,6 +69,9 @@ Notes:
 - [ ] Run full lint + test suite before submitting
 - [ ] Docs updated in the same PR as code changes
 - [ ] Only change files relevant to the task — no drive-by improvements
+- [ ] The `CI Checks` workflow runs on PRs and `main` pushes with
+      `pnpm lint`, `pnpm build`, `pnpm lint:api`, `pnpm test:api`, and
+      `pnpm check:structure`
 
 ## Testing
 
