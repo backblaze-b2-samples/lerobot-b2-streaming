@@ -27,5 +27,4 @@ av>=15,<16
 datasets>=4,<5
 huggingface-hub>=0.34.2,<0.36
 pyarrow>=17,<22
-numpy>=1.26,<3
 pandas>=2.2,<3

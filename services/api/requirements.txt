@@ -8,6 +8,7 @@ boto3>=1.35.0
 python-magic>=0.4.27
 Pillow>=11.0.0
 PyPDF2>=3.0.0
+numpy>=1.26,<3
 
 # Dev / quality
 ruff>=0.8.0

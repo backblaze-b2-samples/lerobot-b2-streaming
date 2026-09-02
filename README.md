@@ -52,7 +52,7 @@ pnpm install
 
 **2. Set up the backend (base + ML deps)**
 
-The base API boots without torch; the **ingest and streaming features** need the ML deps in a separate file (kept out of the structural-test fast path):
+The base API boots without torch; the **ingest and streaming features** need the ML deps in a separate file (kept out of the structural-test fast path). `numpy` is included in the base API requirements because lightweight source-shape tests and the logged offline fallback use it without loading torch:
 
 ```bash
 cd services/api

@@ -88,26 +88,23 @@ def _features(cameras: list[dict], state_dim: int, action_dim: int) -> dict:
 
 def _synth_frame(num_cameras: int, resolution: int, t: int, total: int, device: str):
     """Procedurally generate one frame: a moving gradient per camera + a smooth
-    6-DoF state/action vector. Offline fallback only; tensors are built on the
-    detected device, then moved to CPU/numpy for LeRobot (which stores numpy)."""
+    6-DoF state/action vector. Offline fallback only; frames are numpy arrays so
+    the base test path does not need the heavy ML dependency tier."""
     import numpy as np
-    import torch
 
     phase = t / max(total - 1, 1)
     frame: dict = {}
+    y = np.linspace(0, 1, resolution, dtype=np.float32)
+    x = np.linspace(0, 1, resolution, dtype=np.float32)
+    yy, xx = np.meshgrid(y, x, indexing="ij")
+    base = (xx + yy) * 0.5
     for cam in range(num_cameras):
         # A diagonal sweep whose hue offset differs per camera.
-        yy, xx = torch.meshgrid(
-            torch.linspace(0, 1, resolution, device=device),
-            torch.linspace(0, 1, resolution, device=device),
-            indexing="ij",
-        )
-        base = (xx + yy) * 0.5
-        r = ((base + phase + cam * 0.2) % 1.0)
-        g = ((base + phase * 0.7 + cam * 0.4) % 1.0)
-        b = ((base * 0.5 + phase + cam * 0.6) % 1.0)
-        img = torch.stack([r, g, b], dim=-1)  # (H, W, 3) on device
-        img = (img * 255).clamp(0, 255).to(torch.uint8).cpu().numpy()
+        r = (base + phase + cam * 0.2) % 1.0
+        g = (base + phase * 0.7 + cam * 0.4) % 1.0
+        b = (base * 0.5 + phase + cam * 0.6) % 1.0
+        img = np.stack([r, g, b], axis=-1)
+        img = np.clip(img * 255, 0, 255).astype(np.uint8)
         frame[f"observation.images.cam_{cam}"] = img
 
     state = np.array(

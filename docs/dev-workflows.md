@@ -7,8 +7,9 @@ Engineering workflows for this repo.
 
 The backend has two dependency tiers:
 
-- `services/api/requirements.txt` — base deps (FastAPI, boto3, Pydantic). The
-  app **boots** and the structural + contract tests run with just these. No torch.
+- `services/api/requirements.txt` — base deps (FastAPI, boto3, Pydantic,
+  Pillow, numpy). The app **boots** and the structural + contract tests run with
+  just these. No torch.
 - `services/api/requirements-ml.txt` — the ML deps that the **ingest** and
   **streaming** features need: `lerobot` (pinned `>=0.4.4,<0.5` to match Python
   3.11), `torch`, `torchcodec`, `pyarrow`, etc.
