@@ -20,8 +20,8 @@ const ENV_FILE = resolve(REPO_ROOT, ".env");
 const VENV_UVICORN = resolve(REPO_ROOT, "services/api/.venv/bin/uvicorn");
 
 // Required minimum versions. Bump as upstream support shifts.
-const REQUIRED_NODE_MAJOR = 20;
-const REQUIRED_PNPM_MAJOR = 9;
+const REQUIRED_NODE = { major: 22, minor: 13, patch: 0 };
+const REQUIRED_PNPM = { major: 9, minor: 0, patch: 0 };
 const REQUIRED_PYTHON_MINOR = 11; // 3.11+
 
 // Required B2 env vars + the exact placeholder strings shipped in
@@ -70,14 +70,24 @@ function parseSemver(s) {
   return { major: +match[1], minor: +match[2], patch: +match[3] };
 }
 
+function isAtLeast(actual, required) {
+  if (actual.major !== required.major) return actual.major > required.major;
+  if (actual.minor !== required.minor) return actual.minor > required.minor;
+  return actual.patch >= required.patch;
+}
+
+function formatSemver(v) {
+  return `${v.major}.${v.minor}.${v.patch}`;
+}
+
 // ----- Tool versions -----
 
 function checkNode() {
   const v = parseSemver(process.version);
-  if (!v || v.major < REQUIRED_NODE_MAJOR) {
+  if (!v || !isAtLeast(v, REQUIRED_NODE)) {
     fail(
-      `Node ${process.version} is too old (need >= ${REQUIRED_NODE_MAJOR}.0.0)`,
-      `Install a current Node via nvm/fnm: \`nvm install ${REQUIRED_NODE_MAJOR}\``,
+      `Node ${process.version} is too old (need >= ${formatSemver(REQUIRED_NODE)})`,
+      `Install a current Node via nvm/fnm: \`nvm install ${REQUIRED_NODE.major}\``,
     );
   }
 }
@@ -89,10 +99,10 @@ function checkPnpm() {
     return;
   }
   const v = parseSemver(out);
-  if (!v || v.major < REQUIRED_PNPM_MAJOR) {
+  if (!v || !isAtLeast(v, REQUIRED_PNPM)) {
     fail(
-      `pnpm ${out} is too old (need >= ${REQUIRED_PNPM_MAJOR})`,
-      `Run: \`corepack prepare pnpm@latest --activate\``,
+      `pnpm ${out} is too old (need >= ${formatSemver(REQUIRED_PNPM)})`,
+      `Run: \`corepack prepare pnpm@${formatSemver(REQUIRED_PNPM)} --activate\``,
     );
   }
 }
